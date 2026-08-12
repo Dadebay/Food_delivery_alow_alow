@@ -1,0 +1,51 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "AlowAlow · Android phone · Local backend",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
+      "deviceId": "RFCW504Z11B",
+      "preLaunchTask": "AlowAlow: Android API tunnel",
+      "toolArgs": [
+        "--dart-define=USE_MOCK_DATA=false",
+        "--dart-define=API_BASE_URL=http://127.0.0.1:4000/api/v1/"
+      ]
+    },
+    {
+      "name": "AlowAlow · Android emulator · Local backend",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
+      "toolArgs": [
+        "--dart-define=USE_MOCK_DATA=false",
+        "--dart-define=API_BASE_URL=http://10.0.2.2:4000/api/v1/"
+      ]
+    },
+    {
+      "name": "AlowAlow · iOS simulator / macOS · Local backend",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
+      "toolArgs": [
+        "--dart-define=USE_MOCK_DATA=false",
+        "--dart-define=API_BASE_URL=http://127.0.0.1:4000/api/v1/"
+      ]
+    },
+    {
+      "name": "AlowAlow · iPhone/iPad · Local Wi-Fi backend",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
+      "toolArgs": [
+        "--dart-define=USE_MOCK_DATA=false",
+        "--dart-define=API_BASE_URL=http://172.16.14.31:4000/api/v1/"
+      ]
+    }
+  ]
+}

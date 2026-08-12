@@ -1,0 +1,93 @@
+name: food_delivery
+description: >
+  Naharym — customer ordering app. Browse the menu, order in three taps,
+  track the courier live on the map, pay cash with exact change ready.
+
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+# ════════════════════════════════════════════════════════════════
+#  DEPENDENCIES
+# ════════════════════════════════════════════════════════════════
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # ─── State Management ────────────────────────────────────────
+  provider: ^6.1.2
+
+  # ─── Networking ──────────────────────────────────────────────
+  dio: ^5.8.0+1
+  connectivity_plus: ^7.1.1
+
+  # ─── Maps & Location ─────────────────────────────────────────
+  # Same tile server as the courier app — our own, no per-request billing.
+  flutter_map: ^8.1.1
+  flutter_map_cache: ^1.5.2
+  latlong2: ^0.9.1
+  location: ^8.0.0
+
+  # ─── Storage & Cache ─────────────────────────────────────────
+  hive_flutter: ^1.1.0
+  dio_cache_interceptor_hive_store: ^4.0.0
+  shared_preferences: ^2.3.3
+  path_provider: ^2.1.5
+  path: ^1.9.0
+
+  # ─── Icons & UI ──────────────────────────────────────────────
+  cupertino_icons: ^1.0.8
+  hugeicons: ^1.1.7
+  flutter_svg: ^2.0.12
+  video_player: ^2.9.2
+  image_picker: ^1.1.2
+
+  # ─── Utilities ───────────────────────────────────────────────
+  intl: ^0.20.2
+  url_launcher: ^6.3.1
+  permission_handler: ^11.3.1
+  carousel_slider: ^5.1.2
+  flutter_animate: ^4.5.2
+
+  # ─── Firebase ────────────────────────────────────────────────
+  firebase_core: ^4.1.1
+  firebase_messaging: ^16.0.2
+  firebase_analytics: ^12.0.2
+  flutter_local_notifications: ^19.0.0
+  firebase_app_installations: ^0.4.2+6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+# ════════════════════════════════════════════════════════════════
+#  FLUTTER
+# ════════════════════════════════════════════════════════════════
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/animations/
+    - assets/animations/onboarding/
+    - assets/icons/
+    - assets/images/
+    - assets/images/dishes/
+    - assets/images/banners/
+    - assets/images/flags/
+
+  fonts:
+    - family: Gilroy
+      fonts:
+        - asset: assets/fonts/Gilroy-Regular.ttf
+        - asset: assets/fonts/Gilroy-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Gilroy-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Gilroy-Bold.ttf
+          weight: 700

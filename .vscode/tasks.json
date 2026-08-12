@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "AlowAlow: Android API tunnel",
+      "type": "shell",
+      "command": "/Users/dadebay/Library/Android/sdk/platform-tools/adb",
+      "args": ["reverse", "tcp:4000", "tcp:4000"],
+      "problemMatcher": []
+    }
+  ]
+}
