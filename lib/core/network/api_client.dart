@@ -58,8 +58,12 @@ class ApiClient {
           handler.next(response);
         },
         onError: (error, handler) {
+          final body = error.response?.data;
+          final message = body is Map<String, dynamic> ? body['message'] : null;
           dev.log(
-            '${error.requestOptions.method} ${error.requestOptions.path} → ${error.type.name}',
+            '${error.requestOptions.method} ${error.requestOptions.path} → '
+            '${error.type.name} HTTP ${error.response?.statusCode ?? '-'}'
+            '${message == null ? '' : ': $message'}',
             name: 'ApiClient',
           );
           handler.next(error);

@@ -69,6 +69,7 @@ class AuthRepository {
       unawaited(_prefs.setString(_phoneKey, '+99361234567'));
     }
     _api.token = token;
+    _debugSession('RESTORED');
     if (!AppConfig.useMockData && token != null) {
       unawaited(_pushDevices.register());
       unawaited(_refreshProfile());
@@ -79,6 +80,11 @@ class AuthRepository {
     if (AppConfig.useMockData) {
       await Future<void>.delayed(const Duration(milliseconds: 500));
       return;
+    }
+    if (kDebugMode) {
+      debugPrint(
+        '[OTP] Requesting code for $phone → ${AppConfig.apiBaseUrl}${ApiPaths.requestCode}',
+      );
     }
     // Installation metadata is strictly best-effort: a Firebase issue must
     // never prevent a customer from receiving an OTP.
@@ -94,10 +100,28 @@ class AuthRepository {
     if (platform != null) body['platform'] = platform;
 
     final response = await _api.post(ApiPaths.requestCode, data: body);
+    if (kDebugMode) {
+      debugPrint('[OTP] Response ← HTTP ${response.statusCode}');
+    }
+    if (response.statusCode != 200) {
+      final responseBody = response.data;
+      final message = responseBody is Map<String, dynamic>
+          ? responseBody['message']
+          : null;
+      throw StateError(
+        message is String && message.isNotEmpty
+            ? message
+            : 'OTP isteği başarısız: HTTP ${response.statusCode}',
+      );
+    }
     if (kDebugMode && response.data is Map<String, dynamic>) {
       final devCode = response.data['devCode'];
       if (devCode is String && devCode.isNotEmpty) {
         _printDevCode(devCode);
+      } else {
+        debugPrint(
+          '[OTP] Server accepted request (HTTP ${response.statusCode}); waiting for SMS gateway.',
+        );
       }
     }
   }
@@ -156,12 +180,24 @@ class AuthRepository {
         if (firstName != null && firstName.isNotEmpty) 'firstName': firstName,
       },
     );
-    if (response.statusCode != 200) return false;
+    if (response.statusCode != 200) {
+      if (kDebugMode) _printVerifyError(response.statusCode, response.data);
+      final body = response.data;
+      final message = body is Map<String, dynamic> ? body['message'] : null;
+      throw StateError(
+        message is String && message.isNotEmpty
+            ? message
+            : 'Kod doğrulanamadı. Lütfen tekrar deneyin.',
+      );
+    }
 
     final data = response.data as Map<String, dynamic>;
     final token = data['accessToken'] as String?;
     final refreshToken = data['refreshToken'] as String?;
-    if (token == null) return false;
+    if (token == null) {
+      if (kDebugMode) debugPrint('[OTP] Verify failed: access token missing.');
+      throw StateError('Giriş bilgisi alınamadı. Lütfen tekrar deneyin.');
+    }
 
     final user = data['user'] as Map<String, dynamic>?;
     final displayName = [
@@ -176,6 +212,17 @@ class AuthRepository {
     );
     await _pushDevices.register();
     return true;
+  }
+
+  void _printVerifyError(int? statusCode, dynamic body) {
+    final message = body is Map<String, dynamic> ? body['message'] : body;
+    const red = '\x1B[1;31m';
+    const yellow = '\x1B[1;33m';
+    const reset = '\x1B[0m';
+    debugPrint('$red╔════════ OTP VERIFY FAILED ════════╗$reset');
+    debugPrint('$red║$reset HTTP: $yellow$statusCode$reset');
+    debugPrint('$red║$reset ${message ?? 'Unknown error'}');
+    debugPrint('$red╚══════════════════════════════════╝$reset');
   }
 
   Future<void> signOut() async {
@@ -256,6 +303,7 @@ class AuthRepository {
   }
 
   Future<void> _clearSession() async {
+    _debugSession('CLEARING');
     await _prefs.remove(_tokenKey);
     await _prefs.remove(_phoneKey);
     await _prefs.remove(_refreshTokenKey);
@@ -279,6 +327,17 @@ class AuthRepository {
       await _prefs.setString(_displayNameKey, displayName);
     }
     _api.token = token;
+    _debugSession('SAVED');
+  }
+
+  void _debugSession(String action) {
+    if (!kDebugMode) return;
+    final hasAccessToken = _prefs.getString(_tokenKey) != null;
+    final hasRefreshToken = _prefs.getString(_refreshTokenKey) != null;
+    debugPrint('╔════════ AUTH SESSION $action ════════╗');
+    debugPrint('║ ACCESS TOKEN: ${hasAccessToken ? 'stored' : 'missing'}');
+    debugPrint('║ REFRESH TOKEN: ${hasRefreshToken ? 'stored' : 'missing'}');
+    debugPrint('╚══════════════════════════════════════╝');
   }
 
   /// Saves a new display name and/or profile photo.

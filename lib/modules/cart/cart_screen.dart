@@ -40,7 +40,7 @@ class CartScreen extends StatelessWidget {
     final cart = context.watch<CartProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: Text(s.cartTitle)),
       body: cart.isEmpty
           ? _Empty(title: s.cartEmpty, hint: s.cartEmptyHint)

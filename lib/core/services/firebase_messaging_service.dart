@@ -82,15 +82,38 @@ class FirebaseMessagingService {
     }
   }
 
-  void _handleForegroundMessage(RemoteMessage message) {
+  Future<void> _handleForegroundMessage(RemoteMessage message) async {
     final notification = message.notification;
-    if (notification != null) {
-      LocalNotificationsService.instance.show(
-        title: notification.title,
-        body: notification.body,
-        payload: message.data.toString(),
-      );
+    final title =
+        notification?.title ??
+        _dataString(message.data, 'title') ??
+        'Sargyt täzelendi';
+    final body =
+        notification?.body ??
+        _dataString(message.data, 'body') ??
+        _dataString(message.data, 'message') ??
+        'Sargydyňyzyň ýagdaýy üýtgedi.';
+
+    if (kDebugMode) {
+      const cyan = '\x1B[1;36m';
+      const yellow = '\x1B[1;33m';
+      const reset = '\x1B[0m';
+      debugPrint('$cyan╔════════ FCM FOREGROUND RECEIVED ════════╗$reset');
+      debugPrint('$cyan║$reset TITLE: $yellow$title$reset');
+      debugPrint('$cyan║$reset BODY: $body');
+      debugPrint('$cyan║$reset DATA: ${message.data}');
+      debugPrint('$cyan╚═════════════════════════════════════════╝$reset');
     }
+    await LocalNotificationsService.instance.show(
+      title: title,
+      body: body,
+      payload: message.data.toString(),
+    );
+  }
+
+  String? _dataString(Map<String, dynamic> data, String key) {
+    final value = data[key];
+    return value is String && value.trim().isNotEmpty ? value : null;
   }
 
   void _debugToken(String label, String value, String ansiColor) {

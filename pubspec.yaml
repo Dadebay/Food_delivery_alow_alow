@@ -25,6 +25,7 @@ dependencies:
   # ─── Networking ──────────────────────────────────────────────
   dio: ^5.8.0+1
   connectivity_plus: ^7.1.1
+  cached_network_image: ^3.4.1
 
   # ─── Maps & Location ─────────────────────────────────────────
   # Same tile server as the courier app — our own, no per-request billing.
@@ -80,6 +81,16 @@ flutter:
     - assets/images/dishes/
     - assets/images/banners/
     - assets/images/flags/
+    - assets/logo_text.png
+    - assets/logo_icon.png
+    - assets/onboard1.png
+    - assets/onboard2.png
+    - assets/onboard3.png
+    - assets/onboard.png
+    - assets/only_text_logo.png
+    - assets/alev_alev.mp4
+    - assets/panda_pin.png
+    - assets/panda_order.png
 
   fonts:
     - family: Gilroy

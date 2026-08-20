@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/localization/app_strings.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/app_button.dart';
 
@@ -36,60 +34,37 @@ class _LanguageSelectScreenState extends State<LanguageSelectScreen> {
     final s = _selected;
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.onboardingBackground,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.orangeSoft,
-                  border: Border.all(color: AppColors.orange, width: 2),
-                ),
-                child: const Center(
-                  child: HugeIcon(
-                    icon: AppIcons.cart,
-                    color: AppColors.orange,
-                    size: 44,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 12),
+              Image.asset('assets/logo_text.png', height: 160),
+              const Spacer(flex: 1),
+              Padding(padding: const EdgeInsets.only(right: 25), child: Image.asset('assets/logo_icon.png', height: 220)),
+              const Spacer(flex: 2),
               Text(
                 s.chooseLanguage,
-                style: AppText.h1.copyWith(
-                  fontSize: 26,
-                  color: AppColors.textPrimary,
-                ),
+                textAlign: TextAlign.center,
+                style: AppText.h1.copyWith(fontSize: 24, color: AppColors.textPrimary),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
               Row(
                 children: [
                   for (final option in LocaleProvider.supported)
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: _LanguageCard(
-                          strings: option,
-                          selected:
-                              option.languageCode == _selected.languageCode,
-                          onTap: () => setState(() => _selected = option),
-                        ),
+                        child: _LanguageCard(strings: option, selected: option.languageCode == _selected.languageCode, onTap: () => setState(() => _selected = option)),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 32),
-              AppButton(
-                label: s.onboardingNext,
-                onPressed: () =>
-                    context.read<LocaleProvider>().select(_selected),
-              ),
+              const Spacer(flex: 3),
+              AppButton(label: s.onboardingNext, onPressed: () => context.read<LocaleProvider>().select(_selected)),
+              const SizedBox(height: 12),
             ],
           ),
         ),
@@ -99,11 +74,7 @@ class _LanguageSelectScreenState extends State<LanguageSelectScreen> {
 }
 
 class _LanguageCard extends StatelessWidget {
-  const _LanguageCard({
-    required this.strings,
-    required this.selected,
-    required this.onTap,
-  });
+  const _LanguageCard({required this.strings, required this.selected, required this.onTap});
 
   final AppStrings strings;
   final bool selected;
@@ -121,18 +92,10 @@ class _LanguageCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: selected
-                ? null
-                : Border.all(color: AppColors.divider, width: 1.5),
+            border: selected ? null : Border.all(color: AppColors.divider, width: 1.5),
           ),
           child: Center(
-            child: Text(
-              strings.languageName,
-              style: AppText.button.copyWith(
-                fontSize: 15,
-                color: selected ? AppColors.white : AppColors.textPrimary,
-              ),
-            ),
+            child: Text(strings.languageName, style: AppText.button.copyWith(fontSize: 15, color: selected ? AppColors.white : AppColors.textPrimary)),
           ),
         ),
       ),

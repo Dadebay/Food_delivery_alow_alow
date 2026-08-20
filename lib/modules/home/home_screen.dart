@@ -99,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final connectivity = context.watch<ConnectivityService>();
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: Colors.transparent,
       body: Column(
         children: [
           _Header(

@@ -621,7 +621,12 @@ class _BottomBar extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              AppButton(label: strings.placeOrder, icon: AppIcons.checkCircle, busy: busy, onPressed: onPlaceOrder),
+              AppButton(
+                label: strings.placeOrder,
+                leading: Image.asset('assets/panda_order.png', width: 50, height: 50, fit: BoxFit.contain, filterQuality: FilterQuality.high),
+                busy: busy,
+                onPressed: onPlaceOrder,
+              ),
             ],
           ),
         ),
@@ -719,39 +724,77 @@ class _OrderAcceptedDialogState extends State<_OrderAcceptedDialog> {
   Widget build(BuildContext context) {
     final s = context.s;
     return Dialog(
-      backgroundColor: AppColors.white,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => Navigator.of(context).pop(),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Bleeds to the dialog's own rounded corners instead of sitting
-            // in the same inset as the text below — the illustration reads
-            // as a panel of its own, not just another padded paragraph.
-            Container(
-              width: double.infinity,
-              // padding: const EdgeInsets.symmetric(vertical: 28),
-              color: AppColors.cream,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(28),
-                child: Image.asset('assets/images/create_order.png', height: 160, fit: BoxFit.contain),
-              ),
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 26),
+      elevation: 0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 370),
+        child: Material(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(30),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => Navigator.of(context).pop(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 194,
+                  width: double.infinity,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.green, AppColors.greenLight]),
+                        ),
+                        child: SizedBox.expand(),
+                      ),
+                      Positioned(
+                        right: -28,
+                        top: -44,
+                        child: Container(
+                          width: 154,
+                          height: 154,
+                          decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.12), shape: BoxShape.circle),
+                        ),
+                      ),
+                      Image.asset('assets/images/create_order.png', height: 165, fit: BoxFit.contain),
+                      Positioned(
+                        bottom: 14,
+                        child: Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: AppColors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
+                          ),
+                          child: const Icon(Icons.check_rounded, color: AppColors.green, size: 28),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 22, 28, 26),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(s.orderPlacedTitle, style: AppText.h2.copyWith(fontSize: 23), textAlign: TextAlign.center),
+                      const SizedBox(height: 9),
+                      Text(s.orderPlacedHint, style: AppText.bodyMuted, textAlign: TextAlign.center),
+                      const SizedBox(height: 18),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(99),
+                        child: const LinearProgressIndicator(minHeight: 4, color: AppColors.green, backgroundColor: AppColors.cream),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(s.orderPlacedTitle, style: AppText.h2, textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
-                  Text(s.orderPlacedHint, style: AppText.bodyMuted, textAlign: TextAlign.center),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

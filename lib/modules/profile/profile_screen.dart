@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/constants/app_config.dart';
 import '../../core/data/contact_repository.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/localization/locale_provider.dart';
@@ -21,6 +20,7 @@ import '../catalog/catalog_provider.dart';
 import '../favorites/favorites_screen.dart';
 import '../checkout/address_provider.dart';
 import 'saved_addresses_screen.dart';
+import 'widgets/flame_avatar_video.dart';
 
 /// The customer's own screen — identity, addresses, promo codes, settings,
 /// support, and sign-in/out. There's no name field behind the phone-only
@@ -45,7 +45,7 @@ class ProfileScreen extends StatelessWidget {
     final favorites = context.watch<CatalogProvider>().favorites.length;
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text(s.profile),
         actions: [
@@ -53,8 +53,7 @@ class ProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.only(right: 6),
             child: IconButton(
               tooltip: s.support,
-              onPressed: () =>
-                  launchUrl(Uri(scheme: 'tel', path: AppConfig.supportPhone)),
+              onPressed: () => _callSupport(context),
               style: IconButton.styleFrom(
                 backgroundColor: AppColors.white.withValues(alpha: 0.14),
                 shape: RoundedRectangleBorder(
@@ -132,7 +131,7 @@ class ProfileScreen extends StatelessWidget {
           if (auth.isSignedIn) ...[
             const SizedBox(height: 28),
             AppButton(
-              label: s.signOut,
+              label: s.deleteAccount,
               icon: AppIcons.signOut,
               color: AppColors.redSoft,
               textColor: AppColors.red,
@@ -306,6 +305,26 @@ class ProfileScreen extends StatelessWidget {
       builder: (_) =>
           _SupportSheet(repository: context.read<ContactRepository>()),
     );
+  }
+
+  Future<void> _callSupport(BuildContext context) async {
+    try {
+      final contact = await context.read<ContactRepository>().get();
+      if (!context.mounted) return;
+      final opened = await launchUrl(Uri(scheme: 'tel', path: contact.phone));
+      if (!opened && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Arama uygulaması açılamadı.')),
+        );
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Destek numarası alınamadı. Lütfen tekrar deneyin.'),
+        ),
+      );
+    }
   }
 }
 
@@ -737,18 +756,15 @@ class _IdentityCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 26,
-                  backgroundColor: AppColors.green,
+                  backgroundColor: AppColors.white,
                   backgroundImage: avatarPath != null
                       ? FileImage(File(avatarPath!))
                       : null,
-                  child: avatarPath == null
-                      ? const HugeIcon(
-                          icon: AppIcons.user,
-                          color: AppColors.white,
-                          size: 24,
-                        )
-                      : null,
                 ),
+                // The widescreen clip is zoomed and clipped inside the same
+                // 52 px circle as a regular customer photo.
+                if (avatarPath == null)
+                  const Positioned.fill(child: FlameAvatarVideo(size: 52)),
                 if (busy)
                   const Positioned.fill(
                     child: CircleAvatar(

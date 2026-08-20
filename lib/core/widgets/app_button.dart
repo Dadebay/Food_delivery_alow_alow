@@ -17,6 +17,7 @@ class AppButton extends StatelessWidget {
     this.outlined = false,
     this.busy = false,
     this.icon,
+    this.leading,
     this.height = 56,
   });
 
@@ -26,6 +27,7 @@ class AppButton extends StatelessWidget {
     required this.onPressed,
     this.busy = false,
     this.icon,
+    this.leading,
     this.height = 56,
   }) : color = AppColors.divider,
        textColor = AppColors.green,
@@ -38,6 +40,10 @@ class AppButton extends StatelessWidget {
   final bool outlined;
   final bool busy;
   final HugeIconData? icon;
+
+  /// Overrides [icon] with an arbitrary widget (e.g. a looping video icon)
+  /// when set — same slot, same spacing.
+  final Widget? leading;
   final double height;
 
   @override
@@ -77,7 +83,10 @@ class AppButton extends StatelessWidget {
                   : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (icon != null) ...[
+                        if (leading != null) ...[
+                          leading!,
+                          const SizedBox(width: 10),
+                        ] else if (icon != null) ...[
                           HugeIcon(icon: icon!, size: 20, color: textColor),
                           const SizedBox(width: 10),
                         ],

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
@@ -28,10 +29,10 @@ class DishThumbnail extends StatelessWidget {
     if (url == null || url.isEmpty) {
       image = fallback;
     } else if (url.startsWith('http')) {
-      image = Image.network(
-        url,
+      image = CachedNetworkImage(
+        imageUrl: url,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => fallback,
+        errorWidget: (context, url, error) => fallback,
       );
     } else {
       image = Image.asset(

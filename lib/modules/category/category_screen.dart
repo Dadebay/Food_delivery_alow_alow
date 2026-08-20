@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -61,7 +62,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
     final catalog = context.watch<CatalogProvider>();
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text(s.sections),
         actions: [
@@ -334,10 +335,10 @@ class _CategoryImage extends StatelessWidget {
     final fallback = _CategoryWatermark(tint: tint);
     if (value == null || value.isEmpty) return fallback;
     if (value.startsWith('http')) {
-      return Image.network(
-        value,
+      return CachedNetworkImage(
+        imageUrl: value,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => fallback,
+        errorWidget: (context, url, error) => fallback,
       );
     }
     return Image.asset(

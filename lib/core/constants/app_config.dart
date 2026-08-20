@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 /// Central place for every server address and tuning constant.
 ///
 /// Same approach as the courier app: one file changes when this is installed
@@ -8,17 +6,14 @@ class AppConfig {
   const AppConfig._();
 
   // ─── Backend ─────────────────────────────────────────────────
-  /// The Android emulator reaches the host machine through `10.0.2.2`.
-  /// Override this for an iOS simulator or a physical device, for example:
+  /// Production API. Override this for a local or staging server, for example:
   /// `--dart-define=API_BASE_URL=http://192.168.1.20:4000/api/v1/`.
   static String get apiBaseUrl {
     const configured = String.fromEnvironment('API_BASE_URL');
     if (configured.isNotEmpty) {
       return configured.endsWith('/') ? configured : '$configured/';
     }
-    return Platform.isAndroid
-        ? 'http://10.0.2.2:4000/api/v1/'
-        : 'http://127.0.0.1:4000/api/v1/';
+    return 'https://a7-tagam.com.tm/api/v1/';
   }
 
   /// Demo mode: the app runs entirely on the bundled mock catalogue and mock
@@ -29,7 +24,7 @@ class AppConfig {
   // ─── Map ─────────────────────────────────────────────────────
   /// Same tile server as the courier app.
   static const String mapTileUrl =
-      'https://map.ayterek.com/tile/{z}/{x}/{y}.png';
+      'https://a7-tagam.com.tm/tile/{z}/{x}/{y}.png';
   static const String mapUserAgent = 'com.gurbanov.alowalow';
 
   static const String osrmBaseUrl = 'https://router.project-osrm.org';

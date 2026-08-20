@@ -30,8 +30,9 @@ Screens follow the approved mock-ups in `../Naharym-mockups-RU/`
 flutter run
 ```
 
-Ships in demo mode: `AppConfig.useMockData = true` serves the catalogue from
-`core/data/mock/mock_data.dart` and simulates the order life-cycle locally
+Ships in demo mode by default (`AppConfig.useMockData`, driven by the
+`USE_MOCK_DATA` dart-define): the catalogue comes from
+`core/data/mock/mock_data.dart` and the order life-cycle is simulated locally
 (see "How tracking works" below) since there is no backend yet.
 **Sign in with any phone number and the code `0000`.**
 
@@ -87,6 +88,9 @@ lib/
   modules/
     auth/          phone + SMS code sign-in
     home/          menu browsing, dish detail sheet (courier_list.png style)
+    catalog/       CatalogProvider — categories/dishes/favorites, single
+                    source of truth shared by home, category and cart
+    category/      category list + per-category filtered dish grid
     favorites/     hearted dishes
     cart/          the cart tab
     checkout/      address, change note, payment choice, place order

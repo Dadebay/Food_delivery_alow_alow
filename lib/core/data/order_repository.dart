@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../constants/app_config.dart';
@@ -75,6 +76,9 @@ class OrderRepository {
       'promoCode': ?promoCode,
     };
     final response = await _api.post(ApiPaths.placeOrder, data: body);
+    if (response.statusCode == 409 && kDebugMode) {
+      _printOrderConflict(response);
+    }
     _ensureSuccess(response);
     return _fromJson(
       response.data as Map<String, dynamic>,
@@ -103,6 +107,19 @@ class OrderRepository {
     if (code < 200 || code >= 300) {
       throw StateError('Order request failed with $code: ${response.data}');
     }
+  }
+
+  /// Prints the server's conflict reason verbatim in a compact, visible box.
+  /// A 409 is business validation (for example an already-open order), not a
+  /// transport failure, so the response body is the useful diagnostic.
+  void _printOrderConflict(Response<dynamic> response) {
+    const red = '\x1B[1;31m';
+    const yellow = '\x1B[1;33m';
+    const reset = '\x1B[0m';
+    debugPrint('$red╔════════ ORDER REJECTED ════════╗$reset');
+    debugPrint('$red║$reset HTTP: $yellow${response.statusCode}$reset');
+    debugPrint('$red║$reset SERVER: ${response.data}');
+    debugPrint('$red╚════════════════════════════════╝$reset');
   }
 
   Future<LatLng?> courierLocation(String orderId) async {

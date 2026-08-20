@@ -11,6 +11,7 @@ class AuthProvider extends ChangeNotifier {
     _repository.restore();
     _repository.onSessionExpired = _handleSessionExpired;
     _stage = _repository.isSignedIn ? AuthStage.authenticated : AuthStage.phone;
+    _phone = _repository.signedInPhone ?? '';
   }
 
   final AuthRepository _repository;
@@ -20,12 +21,16 @@ class AuthProvider extends ChangeNotifier {
   String _name = '';
   bool _busy = false;
   bool _codeRejected = false;
+  String? _requestError;
+  String? _verifyError;
   bool _profileBusy = false;
 
   AuthStage get stage => _stage;
   String get phone => _phone;
   bool get busy => _busy;
   bool get codeRejected => _codeRejected;
+  String? get requestError => _requestError;
+  String? get verifyError => _verifyError;
   bool get isSignedIn => _stage == AuthStage.authenticated;
   String get displayName => _repository.displayName;
   String get storedName => _repository.storedName;
@@ -52,10 +57,13 @@ class AuthProvider extends ChangeNotifier {
   Future<void> requestCode(String phone, {String name = ''}) async {
     _phone = phone;
     _name = name.trim();
+    _requestError = null;
     _setBusy(true);
     try {
       await _repository.requestCode(phone);
       _stage = AuthStage.code;
+    } catch (error) {
+      _requestError = error.toString().replaceFirst('Bad state: ', '');
     } finally {
       _setBusy(false);
     }
@@ -63,6 +71,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> verify(String code) async {
     _codeRejected = false;
+    _verifyError = null;
     _setBusy(true);
     try {
       final ok = await _repository.verify(
@@ -76,6 +85,10 @@ class AuthProvider extends ChangeNotifier {
         _codeRejected = true;
       }
       return ok;
+    } catch (error) {
+      _codeRejected = true;
+      _verifyError = _friendlyVerifyError(error.toString());
+      return false;
     } finally {
       _setBusy(false);
     }
@@ -84,6 +97,7 @@ class AuthProvider extends ChangeNotifier {
   void backToPhone() {
     _stage = AuthStage.phone;
     _codeRejected = false;
+    _verifyError = null;
     notifyListeners();
   }
 
@@ -97,6 +111,23 @@ class AuthProvider extends ChangeNotifier {
   void _setBusy(bool value) {
     _busy = value;
     notifyListeners();
+  }
+
+  String _friendlyVerifyError(String error) {
+    final message = error.replaceFirst('Bad state: ', '').trim();
+    final lower = message.toLowerCase();
+    if (lower.contains('expired') || lower.contains('unavailable')) {
+      return 'Kod geçersiz veya süresi dolmuş. Yeni kod isteyip tekrar deneyin.';
+    }
+    if (lower.contains('too many') || lower.contains('rate limit')) {
+      return 'Çok fazla deneme yapıldı. 1 dakika bekleyip tekrar deneyin.';
+    }
+    if (lower.contains('could not be sent')) {
+      return 'Kod şu anda gönderilemedi. Lütfen kısa süre sonra tekrar deneyin.';
+    }
+    return message.isEmpty
+        ? 'Kod doğrulanamadı. Lütfen tekrar deneyin.'
+        : message;
   }
 
   /// The refresh token itself was rejected (expired/revoked) — the session

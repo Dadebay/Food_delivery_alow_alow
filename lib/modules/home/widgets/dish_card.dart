@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/cart_fly_animation.dart';
 import '../../../core/widgets/dish_thumbnail.dart';
 import '../../cart/cart_provider.dart';
 
@@ -104,19 +105,18 @@ class DishCard extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Flexible, so a long name gives up its second
-                            // line before the card overflows.
-                            Flexible(
-                              child: Text(
-                                dish.name,
-                                style: AppText.body.copyWith(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.25,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                            // The add control expands after the first tap.
+                            // Keep the title to one stable line so it never
+                            // competes with the price below while that happens.
+                            Text(
+                              dish.name,
+                              style: AppText.body.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                height: 1.25,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
                             _Price(dish: dish),
@@ -172,16 +172,19 @@ class _Price extends StatelessWidget {
   }
 }
 
-/// "+" until the dish is in the cart, then a compact −/qty/+ stepper. The
-/// whole control pops on every quantity change so a tap is felt as well as
-/// seen — the grid is where most adding happens, so it gets the feedback.
+/// A raised plus button until the dish is in the cart, then a compact
+/// −/quantity/+ pill. The control changes its surface, shadow and width
+/// together, which makes the first add feel intentional instead of like a
+/// sudden replacement of two unrelated buttons.
 class _QuickAdd extends StatelessWidget {
   const _QuickAdd({required this.dish});
 
   final Dish dish;
 
-  static const _size = 34.0;
-  static const _radius = 11.0;
+  static const _height = 38.0;
+  static const _addWidth = 38.0;
+  static const _stepperWidth = 86.0;
+  static const _radius = 13.0;
 
   @override
   Widget build(BuildContext context) {
@@ -190,72 +193,87 @@ class _QuickAdd extends StatelessWidget {
     );
     final cart = context.read<CartProvider>();
 
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 220),
+    final inCart = quantity > 0;
+
+    // The stepper has an Expanded quantity label, so it must always receive
+    // a finite width. Letting AnimatedSwitcher derive that width from a
+    // changing child leaves its outgoing FadeTransition unconstrained and
+    // causes "RenderBox was not laid out" during the first add animation.
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 280),
       curve: Curves.easeOutCubic,
-      alignment: Alignment.centerRight,
-      child: TweenAnimationBuilder<double>(
-        // Re-keying on the quantity restarts the pop every time it changes.
-        key: ValueKey(quantity),
-        tween: Tween(begin: quantity == 0 ? 1.0 : 1.22, end: 1.0),
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutBack,
-        builder: (context, scale, child) =>
-            Transform.scale(scale: scale, child: child),
-        child: quantity == 0
-            ? _AddButton(
-                onTap: () {
-                  cart.add(dish);
-                  AnalyticsService.instance.addedToCart(dish, 1);
-                },
-              )
-            : _Stepper(
-                quantity: quantity,
-                onDecrease: () => cart.setQuantity(dish, quantity - 1),
-                onIncrease: () {
-                  cart.add(dish);
-                  AnalyticsService.instance.addedToCart(dish, 1);
-                },
-              ),
+      width: inCart ? _stepperWidth : _addWidth,
+      height: _height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(_radius),
+        boxShadow: [
+          BoxShadow(
+            color: inCart
+                ? AppColors.orange.withValues(alpha: 0.14)
+                : AppColors.orange.withValues(alpha: 0.38),
+            blurRadius: inCart ? 8 : 14,
+            offset: Offset(0, inCart ? 3 : 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: inCart ? AppColors.orangeSoft : AppColors.orange,
+        borderRadius: BorderRadius.circular(_radius),
+        clipBehavior: Clip.antiAlias,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
+          child: inCart
+              ? _Stepper(
+                  key: const ValueKey('stepper'),
+                  quantity: quantity,
+                  onDecrease: () => cart.setQuantity(dish, quantity - 1),
+                  onIncrease: () {
+                    cart.add(dish);
+                    AnalyticsService.instance.addedToCart(dish, 1);
+                    CartFlyAnimation.runFrom(
+                      fromContext: context,
+                      imageUrl: dish.imageUrl,
+                    );
+                  },
+                )
+              : _AddButton(
+                  key: const ValueKey('add'),
+                  onTap: () {
+                    cart.add(dish);
+                    AnalyticsService.instance.addedToCart(dish, 1);
+                    CartFlyAnimation.runFrom(
+                      fromContext: context,
+                      imageUrl: dish.imageUrl,
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }
 }
 
 class _AddButton extends StatelessWidget {
-  const _AddButton({required this.onTap});
+  const _AddButton({super.key, required this.onTap});
 
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(_QuickAdd._radius),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.orange.withValues(alpha: 0.5),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: AppColors.orange,
-        borderRadius: BorderRadius.circular(_QuickAdd._radius),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: const SizedBox(
-            width: _QuickAdd._size,
-            height: _QuickAdd._size,
-            child: Center(
-              child: HugeIcon(
-                icon: AppIcons.plus,
-                color: AppColors.white,
-                size: 20,
-              ),
-            ),
+    return InkWell(
+      onTap: onTap,
+      child: const SizedBox(
+        width: _QuickAdd._addWidth,
+        height: _QuickAdd._height,
+        child: Center(
+          child: HugeIcon(
+            icon: AppIcons.plus,
+            color: AppColors.white,
+            size: 21,
           ),
         ),
       ),
@@ -265,6 +283,7 @@ class _AddButton extends StatelessWidget {
 
 class _Stepper extends StatelessWidget {
   const _Stepper({
+    super.key,
     required this.quantity,
     required this.onDecrease,
     required this.onIncrease,
@@ -276,40 +295,38 @@ class _Stepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // A Material of its own, not a decorated Container — otherwise the tap
-    // ripples land on the card's Material underneath and never show.
-    return Material(
-      color: AppColors.orange,
-      borderRadius: BorderRadius.circular(_QuickAdd._radius),
-      clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        height: _QuickAdd._size,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _StepTap(
-              // One below the last unit reads as "remove", so it gets the
-              // bin rather than a minus the customer might not expect to
-              // empty the line.
-              icon: quantity == 1 ? AppIcons.delete : AppIcons.minus,
-              onTap: onDecrease,
-            ),
-            ConstrainedBox(
-              // Grows for a two- or three-digit quantity rather than
-              // clipping.
-              constraints: const BoxConstraints(minWidth: 25),
+    return SizedBox(
+      height: _QuickAdd._height,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _StepTap(
+            // One below the last unit reads as "remove", so it gets the
+            // bin rather than a minus the customer might not expect to empty
+            // the line.
+            icon: quantity == 1 ? AppIcons.delete : AppIcons.minus,
+            onTap: onDecrease,
+          ),
+          Expanded(
+            child: TweenAnimationBuilder<double>(
+              key: ValueKey(quantity),
+              tween: Tween(begin: 1.18, end: 1.0),
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutBack,
+              builder: (context, scale, child) =>
+                  Transform.scale(scale: scale, child: child),
               child: Text(
                 '$quantity',
                 textAlign: TextAlign.center,
                 style: AppText.button.copyWith(
                   fontSize: 14,
-                  color: AppColors.white,
+                  color: AppColors.orange,
                 ),
               ),
             ),
-            _StepTap(icon: AppIcons.plus, onTap: onIncrease),
-          ],
-        ),
+          ),
+          _StepTap(icon: AppIcons.plus, onTap: onIncrease),
+        ],
       ),
     );
   }
@@ -326,12 +343,10 @@ class _StepTap extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: SizedBox(
-        // Narrow on purpose — the stepper shares a cramped row with the
-        // name and price, and every pixel it gives back is one they keep.
-        width: 25,
-        height: _QuickAdd._size,
+        width: 26,
+        height: _QuickAdd._height,
         child: Center(
-          child: HugeIcon(icon: icon, color: AppColors.white, size: 15),
+          child: HugeIcon(icon: icon, color: AppColors.orange, size: 16),
         ),
       ),
     );

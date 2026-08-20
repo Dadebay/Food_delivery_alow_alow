@@ -112,41 +112,37 @@ class BranchMarker extends StatelessWidget {
   }
 }
 
-/// The customer's own delivery address — a plain location-pin icon, green to
-/// match this app's palette, rather than a hand-painted marker.
+/// The customer's own delivery address — the panda mascot holding the
+/// location pin (`assets/panda_pin.png`), rather than a plain glyph.
 class DestinationPin extends StatelessWidget {
   const DestinationPin({super.key, this.size = 44});
 
   final double size;
 
-  /// Total box height as a multiple of [size] — anything that needs to
-  /// anchor the pin's tip to an exact pixel (the address picker's fixed
-  /// centre pin, the tracking map's `Marker.height`) must offset/size by
-  /// `size * heightRatio`, not a hand-tuned constant, or the tip drifts off
-  /// the actual point the moment this ratio changes.
-  static const double heightRatio = 1.4;
+  /// Total box height as a multiple of [size] — matches the artwork's own
+  /// aspect ratio (898×859). Anything that needs to anchor the pin to an
+  /// exact pixel (the address picker's fixed centre pin, the tracking map's
+  /// `Marker.height`) must offset/size by `size * heightRatio`, not a
+  /// hand-tuned constant, or it drifts off the actual point the moment this
+  /// ratio changes.
+  static const double heightRatio = 859 / 898;
 
   @override
   Widget build(BuildContext context) {
     // Kept inside the same size*heightRatio box the old hand-painted pin
-    // used, anchored to its bottom edge — so the icon's own tip lands on
-    // exactly the pixel every caller already places at the marked point.
+    // used, anchored to its bottom edge. The pin the panda is holding sits
+    // near the bottom-right of the artwork rather than dead-centre, so the
+    // marked point is a few pixels off the pin's literal tip — an
+    // acceptable trade for a mascot graphic rather than a symmetric glyph.
     return SizedBox(
       width: size,
       height: size * heightRatio,
       child: Align(
         alignment: Alignment.bottomCenter,
-        child: Icon(
-          Icons.location_on,
-          size: size,
-          color: AppColors.green,
-          shadows: const [
-            Shadow(
-              color: AppColors.shadow,
-              blurRadius: 6,
-              offset: Offset(0, 3),
-            ),
-          ],
+        child: Image.asset(
+          'assets/panda_pin.png',
+          width: size,
+          fit: BoxFit.contain,
         ),
       ),
     );

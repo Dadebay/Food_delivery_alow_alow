@@ -57,6 +57,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool get _phoneValid => _phone.text.length == _phoneDigits;
   bool get _nameValid => _name.text.trim().isNotEmpty;
+  bool get _isValidOtpLength =>
+      _code.text.length == 4 || _code.text.length == 6;
 
   @override
   Widget build(BuildContext context) {
@@ -67,141 +69,167 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.green,
-      // Scrollable rather than a bare Column — the phone stage grew a name
-      // field, and with the keyboard up behind it that's enough content to
-      // overflow a short phone. The LayoutBuilder/ConstrainedBox pairing
-      // keeps the Spacers below working exactly as before whenever
-      // everything still fits.
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) => SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: IntrinsicHeight(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            // At the code stage, back steps back to the phone field;
-                            // at the phone stage, it closes the sign-in prompt
-                            // entirely and returns the customer to what they were
-                            // doing (e.g. still browsing, cart intact).
-                            onPressed: onCodeStage
-                                ? () =>
-                                      context.read<AuthProvider>().backToPhone()
-                                : () => Navigator.of(context).maybePop(false),
-                            icon: const HugeIcon(
-                              icon: AppIcons.back,
-                              color: AppColors.white,
-                              size: 24,
-                            ),
-                          ),
-                          const Spacer(),
-                          _LanguageSwitch(
-                            current: s.languageCode,
-                            onSelect: (strings) => locale.select(strings),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const HugeIcon(
-                            icon: AppIcons.cart,
-                            color: AppColors.orange,
-                            size: 54,
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            s.loginTitle,
-                            style: AppText.h1.copyWith(fontSize: 30),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            onCodeStage ? s.smsCodeHint : s.loginSubtitle,
-                            style: AppText.body.copyWith(
-                              color: AppColors.greenMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: onCodeStage
-                          ? _CodeField(
-                              controller: _code,
-                              label: s.smsCode,
-                              errorMessage: auth.codeRejected
-                                  ? s.codeInvalid
-                                  : null,
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Asked once, here, rather than on its own step —
-                                // this is the only screen a first-time customer
-                                // sees before they're signed in.
-                                _NameField(
-                                  controller: _name,
-                                  label: s.nameLabel,
-                                  hint: s.nameHint,
+      body: Stack(
+        children: [
+          // The flame/smoke artwork bakes in its own dark-green base, so it
+          // doubles as the screen's background rather than sitting on top of
+          // a separately-coloured one.
+          Positioned.fill(
+            child: Image.asset('assets/onboard.png', fit: BoxFit.cover),
+          ),
+          // Scrollable rather than a bare Column — the phone stage grew a name
+          // field, and with the keyboard up behind it that's enough content to
+          // overflow a short phone. The LayoutBuilder/ConstrainedBox pairing
+          // keeps the Spacers below working exactly as before whenever
+          // everything still fits.
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                // At the code stage, back steps back to the phone field;
+                                // at the phone stage, it closes the sign-in prompt
+                                // entirely and returns the customer to what they were
+                                // doing (e.g. still browsing, cart intact).
+                                onPressed: onCodeStage
+                                    ? () => context
+                                          .read<AuthProvider>()
+                                          .backToPhone()
+                                    : () =>
+                                          Navigator.of(context).maybePop(false),
+                                icon: const HugeIcon(
+                                  icon: AppIcons.back,
+                                  color: AppColors.white,
+                                  size: 24,
                                 ),
-                                const SizedBox(height: 18),
-                                _PhoneField(
-                                  controller: _phone,
-                                  label: s.phoneNumber,
-                                ),
-                              ],
-                            ),
-                    ),
-                    const SizedBox(height: 20),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: AppButton(
-                        label: onCodeStage ? s.verify : s.requestCode,
-                        busy: auth.busy,
-                        onPressed: onCodeStage
-                            ? (_code.text.length == 6
-                                  ? () => _verify(auth)
-                                  : null)
-                            : (_phoneValid && _nameValid
-                                  ? () => context
-                                        .read<AuthProvider>()
-                                        .requestCode(
-                                          '+993${_phone.text}',
-                                          name: _name.text,
-                                        )
-                                  : null),
-                      ),
-                    ),
-                    if (AppConfig.useMockData) ...[
-                      const SizedBox(height: 14),
-                      Center(
-                        child: Text(
-                          s.demoHint,
-                          style: AppText.bodyMuted.copyWith(
-                            color: AppColors.greenMuted,
+                              ),
+                              const Spacer(),
+                              _LanguageSwitch(
+                                current: s.languageCode,
+                                onSelect: (strings) => locale.select(strings),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
-                    const Spacer(flex: 2),
-                  ],
+                        const Spacer(),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Image.asset(
+                                'assets/only_text_logo.png',
+                                height: 80,
+                              ),
+                              const SizedBox(height: 28),
+                              Text(
+                                s.loginTitle,
+                                style: AppText.h1.copyWith(fontSize: 30),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                onCodeStage ? s.smsCodeHint : s.loginSubtitle,
+                                style: AppText.body.copyWith(
+                                  color: AppColors.greenMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: onCodeStage
+                              ? _CodeField(
+                                  controller: _code,
+                                  label: s.smsCode,
+                                  errorMessage:
+                                      auth.verifyError ??
+                                      (auth.codeRejected
+                                          ? s.codeInvalid
+                                          : null),
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Asked once, here, rather than on its own step —
+                                    // this is the only screen a first-time customer
+                                    // sees before they're signed in.
+                                    _NameField(
+                                      controller: _name,
+                                      label: s.nameLabel,
+                                      hint: s.nameHint,
+                                    ),
+                                    const SizedBox(height: 18),
+                                    _PhoneField(
+                                      controller: _phone,
+                                      label: s.phoneNumber,
+                                    ),
+                                  ],
+                                ),
+                        ),
+                        const SizedBox(height: 20),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: AppButton(
+                            label: onCodeStage ? s.verify : s.requestCode,
+                            busy: auth.busy,
+                            onPressed: onCodeStage
+                                ? (_isValidOtpLength
+                                      ? () => _verify(auth)
+                                      : null)
+                                : (_phoneValid && _nameValid
+                                      ? () => context
+                                            .read<AuthProvider>()
+                                            .requestCode(
+                                              '+993${_phone.text}',
+                                              name: _name.text,
+                                            )
+                                      : null),
+                          ),
+                        ),
+                        if (!onCodeStage && auth.requestError != null) ...[
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Text(
+                              auth.requestError!,
+                              textAlign: TextAlign.center,
+                              style: AppText.bodyMuted.copyWith(
+                                color: AppColors.orange,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (AppConfig.useMockData) ...[
+                          const SizedBox(height: 14),
+                          Center(
+                            child: Text(
+                              s.demoHint,
+                              style: AppText.bodyMuted.copyWith(
+                                color: AppColors.greenMuted,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const Spacer(flex: 2),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -292,29 +320,56 @@ class _PhoneField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _FieldLabel(label),
-        TextField(
-          controller: controller,
-          keyboardType: TextInputType.phone,
-          style: AppText.h2.copyWith(
-            color: AppColors.textPrimary,
-            fontSize: 20,
+        Container(
+          padding: const EdgeInsets.only(left: 18, right: 18),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(16),
           ),
-          decoration: InputDecoration(
-            // Fixed prefix — never editable, so it can't be deleted or
-            // mistaken for placeholder text.
-            prefixText: '+993 ',
-            hintText: '62 99 03 44',
-            // Without an explicit style the hint inherits the same dark input
-            // colour and reads as if a number were already typed.
-            hintStyle: AppText.h2.copyWith(
-              color: AppColors.textMuted,
-              fontSize: 20,
-            ),
+          child: Row(
+            children: [
+              // Drawn as a plain Text rather than InputDecoration's
+              // `prefixText` — that only renders once the field has focus or
+              // content, so it flickered in and out; this stays put always.
+              Text(
+                '+993 ',
+                style: AppText.h2.copyWith(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.phone,
+                  style: AppText.h2.copyWith(
+                    color: AppColors.textPrimary,
+                    fontSize: 20,
+                  ),
+                  decoration: InputDecoration(
+                    isCollapsed: true,
+                    border: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    filled: false,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    hintText: '62 99 03 44',
+                    // Without an explicit style the hint inherits the same dark input
+                    // colour and reads as if a number were already typed.
+                    hintStyle: AppText.h2.copyWith(
+                      color: AppColors.textMuted,
+                      fontSize: 20,
+                    ),
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(_phoneDigits),
+                  ],
+                ),
+              ),
+            ],
           ),
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(_phoneDigits),
-          ],
         ),
       ],
     );

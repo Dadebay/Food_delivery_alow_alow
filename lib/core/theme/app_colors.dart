@@ -28,6 +28,10 @@ class AppColors {
   static const Color cream = Color(0xFFfef2e1);
   static const Color white = Color(0xFFFFFFFF);
 
+  /// Matches the baked-in background of the onboard*.png illustrations —
+  /// language select and the onboarding slides.
+  static const Color onboardingBackground = Color(0xFFFCF5EB);
+
   /// Neutral light grey — matches the food-gallery onboarding clip's own
   /// background, so the scaffold behind it doesn't read as a slightly
   /// different white next to the video.

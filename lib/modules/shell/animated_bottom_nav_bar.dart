@@ -10,11 +10,17 @@ class NavBarItemData {
     required this.icon,
     required this.label,
     this.badgeCount = 0,
+    this.iconKey,
   });
 
   final HugeIconData icon;
   final String label;
   final int badgeCount;
+
+  /// Attached to this tab's icon so its on-screen position can be found
+  /// later — the cart tab uses `CartFlyAnimation.cartIconKey` as the target
+  /// for the add-to-cart flourish.
+  final Key? iconKey;
 }
 
 /// A hand-rolled replacement for [BottomNavigationBar]: a green pill slides
@@ -59,45 +65,48 @@ class AnimatedBottomNavBar extends StatelessWidget {
               horizontal: _margin,
               vertical: _margin,
             ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final itemWidth = constraints.maxWidth / items.length;
-                return Stack(
-                  clipBehavior: Clip.none,
+            // Keep this independent of LayoutBuilder. Rebuilding the tab Row
+            // from a LayoutBuilder callback can dirty its RenderFlex while it
+            // is being laid out on some Flutter versions, particularly when a
+            // tab tap also starts the implicit animations below.
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AnimatedAlign(
+                  duration: const Duration(milliseconds: 420),
+                  curve: Curves.easeOutBack,
+                  alignment: _pillAlignment(currentIndex, items.length),
+                  child: FractionallySizedBox(
+                    widthFactor: 1 / items.length,
+                    heightFactor: 1,
+                    // Re-keying on the index restarts the pill's own pop-in
+                    // animation every time it lands on a new tab.
+                    child: _Pill(key: ValueKey(currentIndex)),
+                  ),
+                ),
+                Row(
                   children: [
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 420),
-                      curve: Curves.easeOutBack,
-                      top: 0,
-                      bottom: 0,
-                      left: itemWidth * currentIndex,
-                      width: itemWidth,
-                      // Re-keying on the index restarts the pill's own pop-in
-                      // animation every time it lands on a new tab, on top of
-                      // the slide overshooting past its target and settling
-                      // back — that combination is what reads as a bounce.
-                      child: _Pill(key: ValueKey(currentIndex)),
-                    ),
-                    Row(
-                      children: [
-                        for (var i = 0; i < items.length; i++)
-                          Expanded(
-                            child: _NavItem(
-                              data: items[i],
-                              active: i == currentIndex,
-                              onTap: () => onTap(i),
-                            ),
-                          ),
-                      ],
-                    ),
+                    for (var i = 0; i < items.length; i++)
+                      Expanded(
+                        child: _NavItem(
+                          data: items[i],
+                          active: i == currentIndex,
+                          onTap: () => onTap(i),
+                        ),
+                      ),
                   ],
-                );
-              },
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  Alignment _pillAlignment(int index, int itemCount) {
+    if (itemCount <= 1) return Alignment.center;
+    return Alignment(-1 + (2 * index / (itemCount - 1)), 0);
   }
 }
 
@@ -152,6 +161,7 @@ class _NavItem extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Stack(
+            key: data.iconKey,
             clipBehavior: Clip.none,
             children: [
               TweenAnimationBuilder<double>(

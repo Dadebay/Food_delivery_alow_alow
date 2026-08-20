@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/localization/locale_provider.dart';
 import '../../core/theme/app_icons.dart';
+import '../../core/widgets/cart_fly_animation.dart';
 import '../cart/cart_provider.dart';
 import '../cart/cart_screen.dart';
 import '../category/category_screen.dart';
@@ -36,7 +37,19 @@ class MainNavScreen extends StatelessWidget {
     final index = context.watch<TabSwitcher>().index;
 
     return Scaffold(
-      body: IndexedStack(index: index, children: _screens),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          IgnorePointer(
+            child: Image.asset(
+              'assets/images/app_food_background.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
+          ),
+          IndexedStack(index: index, children: _screens),
+        ],
+      ),
       bottomNavigationBar: AnimatedBottomNavBar(
         currentIndex: index,
         onTap: (i) => context.read<TabSwitcher>().go(i),
@@ -47,6 +60,7 @@ class MainNavScreen extends StatelessWidget {
             icon: AppIcons.cart,
             label: s.navCart,
             badgeCount: cartCount,
+            iconKey: CartFlyAnimation.cartIconKey,
           ),
           NavBarItemData(icon: AppIcons.orders, label: s.navOrders),
           NavBarItemData(icon: AppIcons.user, label: s.navProfile),

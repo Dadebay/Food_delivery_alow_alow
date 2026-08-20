@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -16,7 +17,12 @@ import '../../category/category_dishes_screen.dart';
 /// motion. Any image that fails to load (asset not dropped in yet) falls
 /// back to a plain colour tile instead of throwing.
 class BannerCarousel extends StatefulWidget {
-  const BannerCarousel({super.key, required this.banners, this.height = 240, this.horizontalPadding = 10});
+  const BannerCarousel({
+    super.key,
+    required this.banners,
+    this.height = 240,
+    this.horizontalPadding = 10,
+  });
 
   final List<PromotionBanner> banners;
   final double height;
@@ -36,38 +42,54 @@ class _BannerCarouselState extends State<BannerCarousel> {
     return Column(
       children: [
         CarouselSlider(
-          options: CarouselOptions(
-            height: widget.height,
-            viewportFraction: 1,
-            autoPlay: widget.banners.length > 1,
-            autoPlayInterval: const Duration(seconds: 4),
-            autoPlayCurve: Curves.easeInOutCubic,
-            autoPlayAnimationDuration: const Duration(milliseconds: 700),
-            onPageChanged: (index, _) => setState(() => _page = index),
-          ),
-          items: [
-            for (final banner in widget.banners)
-              // Each slide carries its own side margin — otherwise, at
-              // viewportFraction 1, the outgoing and incoming banners
-              // touch edge-to-edge mid-swipe with no gap between them.
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: widget.horizontalPadding, vertical: 18),
-
-                child: Material(
-                  elevation: 10,
-                  shadowColor: AppColors.green.withValues(alpha: 0.22),
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: banner.link == null ? null : () => _openTarget(context, banner.link!),
-                    child: _BannerImage(banner: banner),
-                  ),
-                ),
+              options: CarouselOptions(
+                height: widget.height,
+                viewportFraction: 1,
+                autoPlay: widget.banners.length > 1,
+                autoPlayInterval: const Duration(seconds: 4),
+                autoPlayCurve: Curves.easeInOutCubic,
+                autoPlayAnimationDuration: const Duration(milliseconds: 700),
+                onPageChanged: (index, _) => setState(() => _page = index),
               ),
-          ],
-        ).animate().fadeIn(duration: 450.ms, curve: Curves.easeOut).scaleXY(begin: 0.94, end: 1, duration: 450.ms, curve: Curves.easeOut),
-        if (widget.banners.length > 1) ...[const SizedBox(height: 10), _DotsIndicator(count: widget.banners.length, activeIndex: _page)],
+              items: [
+                for (final banner in widget.banners)
+                  // Each slide carries its own side margin — otherwise, at
+                  // viewportFraction 1, the outgoing and incoming banners
+                  // touch edge-to-edge mid-swipe with no gap between them.
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: widget.horizontalPadding,
+                      vertical: 18,
+                    ),
+
+                    child: Material(
+                      elevation: 10,
+                      shadowColor: AppColors.green.withValues(alpha: 0.22),
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: banner.link == null
+                            ? null
+                            : () => _openTarget(context, banner.link!),
+                        child: _BannerImage(banner: banner),
+                      ),
+                    ),
+                  ),
+              ],
+            )
+            .animate()
+            .fadeIn(duration: 450.ms, curve: Curves.easeOut)
+            .scaleXY(
+              begin: 0.94,
+              end: 1,
+              duration: 450.ms,
+              curve: Curves.easeOut,
+            ),
+        if (widget.banners.length > 1) ...[
+          const SizedBox(height: 10),
+          _DotsIndicator(count: widget.banners.length, activeIndex: _page),
+        ],
       ],
     );
   }
@@ -78,13 +100,18 @@ Future<void> _openTarget(BuildContext context, String rawLink) async {
   if (uri == null) return;
   // Internal targets can be configured in admin as app://product/<uuid> or
   // app://category/<uuid>. Normal web links retain their existing behavior.
-  if ((uri.scheme == 'app' || uri.scheme == 'alowalow') && uri.pathSegments.isNotEmpty) {
+  if ((uri.scheme == 'app' || uri.scheme == 'alowalow') &&
+      uri.pathSegments.isNotEmpty) {
     final id = uri.pathSegments.first;
     final catalog = context.read<CatalogProvider>();
     if (uri.host == 'product') {
       final matches = catalog.dishes.where((dish) => dish.id == id);
       if (matches.isNotEmpty && context.mounted) {
-        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => DishDetailScreen(dish: matches.first)));
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => DishDetailScreen(dish: matches.first),
+          ),
+        );
       }
       return;
     }
@@ -93,7 +120,10 @@ Future<void> _openTarget(BuildContext context, String rawLink) async {
       if (matches.isNotEmpty && context.mounted) {
         await Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => CategoryDishesScreen(categoryId: matches.first.id, categoryName: matches.first.name),
+            builder: (_) => CategoryDishesScreen(
+              categoryId: matches.first.id,
+              categoryName: matches.first.name,
+            ),
           ),
         );
       }
@@ -121,9 +151,19 @@ class _BannerImage extends StatelessWidget {
       ),
     );
     if (banner.imageUrl.startsWith('assets/')) {
-      return Image.asset(banner.imageUrl, fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, _, _) => fallback);
+      return Image.asset(
+        banner.imageUrl,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        errorBuilder: (_, _, _) => fallback,
+      );
     }
-    return Image.network(banner.imageUrl, fit: BoxFit.cover, width: double.infinity, errorBuilder: (_, _, _) => fallback);
+    return CachedNetworkImage(
+      imageUrl: banner.imageUrl,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      errorWidget: (_, _, _) => fallback,
+    );
   }
 }
 
@@ -161,7 +201,10 @@ class _DotsIndicator extends StatelessWidget {
                     child: Container(
                       width: _dotWidth,
                       height: _dotWidth,
-                      decoration: const BoxDecoration(color: AppColors.divider, shape: BoxShape.circle),
+                      decoration: const BoxDecoration(
+                        color: AppColors.divider,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
                 ),
@@ -193,9 +236,13 @@ class _Pill extends StatelessWidget {
       tween: Tween(begin: 0.4, end: 1),
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutBack,
-      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+      builder: (context, scale, child) =>
+          Transform.scale(scale: scale, child: child),
       child: DecoratedBox(
-        decoration: BoxDecoration(color: AppColors.green, borderRadius: BorderRadius.circular(3)),
+        decoration: BoxDecoration(
+          color: AppColors.green,
+          borderRadius: BorderRadius.circular(3),
+        ),
       ),
     );
   }

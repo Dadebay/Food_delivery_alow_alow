@@ -107,27 +107,15 @@ class _OrderTrackScreenState extends State<OrderTrackScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Row(
                 children: [
+                  _MapBackButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                  const SizedBox(width: 10),
                   _Pill(
                     color: AppColors.green,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () => Navigator.of(context).maybePop(),
-                          icon: const HugeIcon(
-                            icon: AppIcons.back,
-                            color: AppColors.white,
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          s.orderNumber(order.number),
-                          style: AppText.chip.copyWith(color: AppColors.white),
-                        ),
-                      ],
+                    child: Text(
+                      s.orderNumber(order.number),
+                      style: AppText.chip.copyWith(color: AppColors.white),
                     ),
                   ),
                   const Spacer(),
@@ -209,6 +197,35 @@ class _Pill extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MapBackButton extends StatelessWidget {
+  const _MapBackButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: AppColors.white,
+    shape: const CircleBorder(),
+    elevation: 3,
+    shadowColor: Colors.black.withValues(alpha: 0.22),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onPressed,
+      child: const SizedBox(
+        width: 44,
+        height: 44,
+        child: Center(
+          child: HugeIcon(
+            icon: AppIcons.back,
+            color: AppColors.green,
+            size: 21,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _BottomSheet extends StatelessWidget {

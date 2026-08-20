@@ -11,6 +11,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/cart_fly_animation.dart';
 import '../../core/widgets/dish_grid.dart';
 import '../../core/widgets/dish_thumbnail.dart';
 import '../../core/widgets/favorite_toggle.dart';
@@ -265,6 +266,7 @@ class _AddToCartBar extends StatelessWidget {
               note: note.text.trim().isEmpty ? null : note.text.trim(),
             );
             AnalyticsService.instance.addedToCart(dish, quantity);
+            CartFlyAnimation.runFrom(fromContext: context, imageUrl: dish.imageUrl);
             // Stays on the page — the customer might still add dishes from
             // the "more from this category" shelf below.
           },
