@@ -7,9 +7,24 @@ import '../models/cart_item.dart';
 import '../models/delivery_address.dart';
 import '../models/dish.dart';
 import '../models/order.dart';
+import '../models/order_quote.dart';
 import '../models/order_status.dart';
 import '../network/api_client.dart';
 import 'mock/mock_data.dart';
+
+/// Thrown when the backend rejects an order — carries the server's own
+/// message (e.g. "Promo code is unavailable") so the UI can show a specific,
+/// translated reason instead of the raw error body.
+class OrderPlacementException implements Exception {
+  OrderPlacementException(this.statusCode, this.serverMessage);
+
+  final int statusCode;
+  final String? serverMessage;
+
+  @override
+  String toString() =>
+      serverMessage ?? 'Order request failed with $statusCode';
+}
 
 /// Places orders and reads order history.
 ///
@@ -42,6 +57,7 @@ class OrderRepository {
     required double discount,
     double? changeFrom,
     String? promoCode,
+    int? deliveryEtrapId,
   }) async {
     if (AppConfig.useMockData) {
       await _demoDelay();
@@ -63,9 +79,15 @@ class OrderRepository {
 
     final body = {
       'items': items
-          .map((i) => {'productId': i.dish.id, 'quantity': i.quantity})
+          .map(
+            (i) => {
+              'productId': i.dish.id,
+              if (i.variant != null) 'variantId': i.variant!.id,
+              'quantity': i.quantity,
+            },
+          )
           .toList(),
-      'addressLabel': 'Teslimat adresi',
+      'addressLabel': 'Gowşuryş salgysy',
       'address': '${address.district}, ${address.house}',
       'latitude': address.point.latitude,
       'longitude': address.point.longitude,
@@ -74,21 +96,62 @@ class OrderRepository {
       'apartment': address.apartment,
       'customerNote': address.note,
       'promoCode': ?promoCode,
+      'deliveryEtrapId': ?deliveryEtrapId,
     };
     final response = await _api.post(ApiPaths.placeOrder, data: body);
     if (response.statusCode == 409 && kDebugMode) {
       _printOrderConflict(response);
     }
-    _ensureSuccess(response);
+    final code = response.statusCode ?? 0;
+    if (code < 200 || code >= 300) {
+      throw OrderPlacementException(code, _extractServerMessage(response.data));
+    }
     return _fromJson(
       response.data as Map<String, dynamic>,
       fallbackItems: items,
     );
   }
 
+  /// NestJS error bodies are `{statusCode, message, error}`, with `message`
+  /// either a single string (business validation, e.g. a bad promo code) or
+  /// an array of strings (class-validator field errors) — either way this is
+  /// the human-readable reason, worth showing instead of the raw JSON.
+  String? _extractServerMessage(Object? data) {
+    if (data is! Map<String, dynamic>) return null;
+    final message = data['message'];
+    if (message is String) return message;
+    if (message is List) return message.whereType<String>().join(', ');
+    return null;
+  }
+
   Future<void> rate(String orderId, int stars) async {
     if (AppConfig.useMockData) return;
     await _api.post(ApiPaths.rateOrder(orderId), data: {'score': stars});
+  }
+
+  /// Cancels an order the customer can still back out of. The deployed
+  /// server only permits this while the order is still `NEW`, so once an
+  /// operator has confirmed it this comes back 403 — surfaced as
+  /// `order_too_late` so the UI can explain it instead of showing a generic
+  /// failure. `version` guards against cancelling a stale copy — the server
+  /// rejects that with a 409 if the order moved on since it was last fetched.
+  Future<CustomerOrder> cancel(
+    String orderId, {
+    required int version,
+    required String reason,
+  }) async {
+    final response = await _api.patch(
+      ApiPaths.cancelOrder(orderId),
+      data: {'reason': reason, 'version': version},
+    );
+    if (response.statusCode == 409) {
+      throw StateError('order_conflict');
+    }
+    if (response.statusCode == 403) {
+      throw StateError('order_too_late');
+    }
+    _ensureSuccess(response);
+    return _fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<CustomerOrder> order(String id) async {
@@ -122,14 +185,53 @@ class OrderRepository {
     debugPrint('$red╚════════════════════════════════╝$reset');
   }
 
+  /// A GPS fix older than this is treated the same as no position at all —
+  /// showing a courier marker frozen from ten minutes ago is worse than
+  /// showing none, because it reads as their current location.
+  static const _staleAfter = Duration(seconds: 90);
+
   Future<LatLng?> courierLocation(String orderId) async {
     final response = await _api.get(ApiPaths.courierLocation(orderId));
     final location = (response.data as Map<String, dynamic>)['location'];
     if (location is! Map<String, dynamic>) return null;
+
+    final recordedAt = DateTime.tryParse(
+      location['recordedAt'] as String? ?? '',
+    );
+    if (recordedAt != null &&
+        DateTime.now().toUtc().difference(recordedAt) > _staleAfter) {
+      return null;
+    }
+
     return LatLng(
       (location['latitude'] as num).toDouble(),
       (location['longitude'] as num).toDouble(),
     );
+  }
+
+  /// Road route from the courier's live position to this order's address —
+  /// asks the backend for it rather than a routing provider directly, so the
+  /// line is always the same one the courier is actually driving. Returns
+  /// `null` when there's nothing to draw yet: not picked up, or the routing
+  /// service is temporarily unavailable.
+  Future<List<LatLng>?> courierRoute(String orderId) async {
+    final response = await _api.get(ApiPaths.courierRoute(orderId));
+    final data = response.data;
+    if (data is! Map<String, dynamic> || data['routingStatus'] != 'READY') {
+      return null;
+    }
+    final geometry = data['geometry'];
+    if (geometry is! Map<String, dynamic> ||
+        geometry['coordinates'] is! List<dynamic>) {
+      return null;
+    }
+    final coords = (geometry['coordinates'] as List<dynamic>)
+        .whereType<List<dynamic>>();
+    if (coords.length < 2) return null;
+    // GeoJSON is [lng, lat]; LatLng is the other way round.
+    return coords
+        .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
+        .toList();
   }
 
   /// A handful of history entries so the tab (and the "повтор в одно
@@ -182,6 +284,7 @@ class OrderRepository {
         branch.latitude + (home.latitude - branch.latitude) * 0.6,
         branch.longitude + (home.longitude - branch.longitude) * 0.6,
       ),
+      pickedUp: true,
       branchPoint: branch,
       branchName: MockData.branchName,
       etaMinutesLow: 8,
@@ -251,6 +354,7 @@ class OrderRepository {
     id: json['id'].toString(),
     number: json['number'] as int,
     status: OrderStatus.fromWire(json['status'] as String?),
+    pickedUp: json['status'] == 'OUT_FOR_DELIVERY',
     items: _itemsFromJson(json['items'], fallbackItems),
     address: DeliveryAddress(
       district: json['address'] as String? ?? '',
@@ -267,6 +371,7 @@ class OrderRepository {
     subtotal: (json['subtotal'] as num).toDouble(),
     deliveryFee: (json['deliveryFee'] as num).toDouble(),
     discount: (json['discount'] as num).toDouble(),
+    version: (json['version'] as num?)?.toInt() ?? 1,
     placedAt: DateTime.parse(json['createdAt'] as String),
     deliveredAt: _date(json['deliveredAt']),
     branchPoint: _branchPoint(json),
@@ -280,18 +385,88 @@ class OrderRepository {
     if (source is! List) return fallback;
     return source.map((item) {
       final json = item as Map<String, dynamic>;
+      final unitPrice = (json['unitPrice'] as num).toDouble();
+      final variantId = json['productVariantId'];
+      final variantName = json['variantName'] as String?;
       return CartItem(
         dish: Dish(
           id: json['productId'].toString(),
           name: json['productName'] as String? ?? '',
           description: '',
-          price: (json['unitPrice'] as num).toDouble(),
+          price: unitPrice,
           categoryId: '',
           imageUrl: _absoluteImageUrl(json['productImageUrl']),
         ),
+        // A historical order line already carries the price it was bought
+        // at — this variant only exists to show its name and that price
+        // next to the dish, not to be re-priced against the live catalogue.
+        variant: variantId == null
+            ? null
+            : DishVariant(
+                id: variantId.toString(),
+                name: variantName ?? '',
+                price: unitPrice,
+              ),
         quantity: json['quantity'] as int,
       );
     }).toList();
+  }
+
+  /// Asks the backend for the authoritative price of the current cart —
+  /// item prices, the promo discount and the delivery fee, all recomputed
+  /// server-side — without creating an order. This is the only source the
+  /// app uses for the delivery fee and the promo discount shown before an
+  /// order is placed; nothing here is guessed or computed on the client.
+  Future<OrderQuote> quote({
+    required List<CartItem> items,
+    required double subtotal,
+    int? deliveryEtrapId,
+    String? promoCode,
+  }) async {
+    if (AppConfig.useMockData) {
+      // No backend to ask in demo mode — this is the one place a flat rate
+      // stands in for a real quote, and only because there is nothing else
+      // to call.
+      await _demoDelay();
+      double discount = 0;
+      if (promoCode != null && promoCode.trim().isNotEmpty) {
+        const demoCodes = {'WELCOME15': 0.15, 'DEMO10': 0.10};
+        final pct = demoCodes[promoCode.trim().toUpperCase()];
+        if (pct == null) {
+          throw OrderPlacementException(400, 'Promo code is unavailable');
+        }
+        discount = double.parse((subtotal * pct).toStringAsFixed(2));
+      }
+      final deliveryFee = AppConfig.deliveryFeeFor(subtotal);
+      final discountedSubtotal = subtotal - discount;
+      return OrderQuote(
+        subtotal: subtotal,
+        discount: discount,
+        discountedSubtotal: discountedSubtotal,
+        deliveryFee: deliveryFee,
+        total: discountedSubtotal + deliveryFee,
+      );
+    }
+
+    final body = {
+      'items': items
+          .map(
+            (i) => {
+              'productId': i.dish.id,
+              if (i.variant != null) 'variantId': i.variant!.id,
+              'quantity': i.quantity,
+            },
+          )
+          .toList(),
+      'deliveryEtrapId': ?deliveryEtrapId,
+      'promoCode': ?promoCode,
+    };
+    final response = await _api.post(ApiPaths.orderQuote, data: body);
+    final code = response.statusCode ?? 0;
+    if (code < 200 || code >= 300) {
+      throw OrderPlacementException(code, _extractServerMessage(response.data));
+    }
+    return OrderQuote.fromJson(response.data as Map<String, dynamic>);
   }
 
   String? _absoluteImageUrl(Object? rawUrl) {

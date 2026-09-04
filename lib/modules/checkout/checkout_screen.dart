@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/data/order_repository.dart' show OrderPlacementException;
 import '../../core/localization/app_strings.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/models/delivery_address.dart';
+import '../../core/models/order_quote.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -39,14 +41,44 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final TextEditingController _promoCode = TextEditingController();
   bool _placing = false;
 
+  // Guards against re-quoting `POST /delivery/quote` on every rebuild —
+  // only fires again once the address or the cart subtotal actually
+  // changes. This call only exists to learn the etrap for the address; the
+  // fee it returns is a preview, not what checkout charges.
+  DeliveryAddress? _quotedAddress;
+  double? _quotedAddressSubtotal;
+
+  // Guards the authoritative `POST /orders/quote` call the same way.
+  double? _quotedSubtotal;
+  int? _quotedEtrapId;
+
+  /// The backend's own pricing for the current cart — item prices, promo
+  /// discount and delivery fee, all recomputed server-side. `null` until
+  /// the first response arrives; every number this screen shows comes from
+  /// here, never from local arithmetic.
+  OrderQuote? _quote;
+
+  bool _promoApplied = false;
+  bool _promoLoading = false;
+  String? _promoError;
+
   @override
   void initState() {
     super.initState();
-    _promoCode.addListener(() => setState(() {}));
+    // Also clears a stale rejection message the moment the customer starts
+    // typing a different code, rather than leaving it stuck until the next
+    // apply attempt.
+    _promoCode.addListener(() {
+      if (_promoError != null) {
+        setState(() => _promoError = null);
+      } else {
+        setState(() {});
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final cart = context.read<CartProvider>();
       if (cart.isNotEmpty) {
-        AnalyticsService.instance.checkoutStarted(cart.items, cart.total);
+        AnalyticsService.instance.checkoutStarted(cart.items, cart.subtotal);
       }
       // Nothing else loads the customer's saved/active address before this
       // screen watches it — without this, "place order" stays disabled
@@ -60,6 +92,100 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void dispose() {
     _promoCode.dispose();
     super.dispose();
+  }
+
+  /// Re-quotes `POST /delivery/quote` for the address whenever it or the
+  /// subtotal changed — this is only how `AddressProvider.deliveryEtrapId`
+  /// gets resolved from raw coordinates; `_loadQuote` below is what
+  /// actually prices the order.
+  void _maybeRefreshAddressQuote(DeliveryAddress? address, double subtotal) {
+    if (address == null) return;
+    if (identical(_quotedAddress, address) &&
+        _quotedAddressSubtotal == subtotal) {
+      return;
+    }
+    _quotedAddress = address;
+    _quotedAddressSubtotal = subtotal;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AddressProvider>().refreshQuote(subtotal);
+    });
+  }
+
+  /// Re-quotes `POST /orders/quote` whenever the cart or the resolved
+  /// delivery etrap changed — this is the only place the delivery fee, the
+  /// promo discount and the grand total come from.
+  void _maybeRefreshOrderQuote(double subtotal, int? etrapId) {
+    if (_quotedSubtotal == subtotal && _quotedEtrapId == etrapId) return;
+    _quotedSubtotal = subtotal;
+    _quotedEtrapId = etrapId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadQuote();
+    });
+  }
+
+  /// Loads `/orders/quote` for the current cart, address and (if applied)
+  /// promo code. Pass [promoCode] only when the customer just tapped
+  /// "apply" — a background refresh (triggered by [_maybeRefreshOrderQuote])
+  /// reuses whatever code is already applied and never surfaces its own
+  /// errors loudly, so a stale network hiccup doesn't wipe out an
+  /// already-applied promo's last-known-good numbers.
+  Future<void> _loadQuote({String? promoCode}) async {
+    final applyingPromo = promoCode != null;
+    final cart = context.read<CartProvider>();
+    final addresses = context.read<AddressProvider>();
+    final orders = context.read<OrderProvider>();
+
+    if (applyingPromo) {
+      FocusScope.of(context).unfocus();
+      setState(() {
+        _promoLoading = true;
+        _promoError = null;
+      });
+    }
+    try {
+      final quote = await orders.quote(
+        items: cart.items.toList(),
+        subtotal: cart.subtotal,
+        deliveryEtrapId: addresses.deliveryEtrapId,
+        promoCode:
+            promoCode ?? (_promoApplied ? _promoCode.text.trim() : null),
+      );
+      if (!mounted) return;
+      setState(() {
+        _quote = quote;
+        if (applyingPromo) _promoApplied = true;
+      });
+      // Confirms the code actually did something — the field itself already
+      // shows the discount once applied, but a snackbar is what makes the
+      // saving register in the moment, right as it lands.
+      if (applyingPromo && quote.discount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.sr.promoDiscountApplied(Fmt.money(quote.discount)))),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      if (applyingPromo) {
+        setState(() => _promoError = _orderErrorMessage(error, context.sr));
+      }
+    } finally {
+      if (applyingPromo && mounted) setState(() => _promoLoading = false);
+    }
+  }
+
+  void _applyPromo() {
+    final code = _promoCode.text.trim();
+    if (code.isEmpty) return;
+    _loadQuote(promoCode: code);
+  }
+
+  void _removePromo() {
+    _promoCode.clear();
+    setState(() {
+      _promoApplied = false;
+      _promoError = null;
+    });
+    _loadQuote();
   }
 
   Future<void> _pickAddress(DeliveryAddress? current) async {
@@ -87,6 +213,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _placeOrder(DeliveryAddress address) async {
     final cart = context.read<CartProvider>();
     final orders = context.read<OrderProvider>();
+    final addresses = context.read<AddressProvider>();
+    final s = context.sr;
 
     setState(() => _placing = true);
     try {
@@ -94,8 +222,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         items: cart.items.toList(),
         address: address,
         subtotal: cart.subtotal,
-        discount: cart.discount,
+        discount: _quote?.discount ?? 0,
         promoCode: _promoCode.text.trim().isEmpty ? null : _promoCode.text.trim(),
+        deliveryEtrapId: addresses.deliveryEtrapId,
       );
       await AnalyticsService.instance.orderPlaced(order);
       cart.clear();
@@ -108,18 +237,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       await Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => OrderTrackScreen(orderId: order.id)), (route) => route.isFirst);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_orderErrorMessage(error, s))));
       }
     } finally {
       if (mounted) setState(() => _placing = false);
     }
   }
 
+  /// The backend rejects a bad/expired/exhausted promo code with a specific
+  /// English message (see `orders.service.ts`) — matched here so the
+  /// customer sees it in their own language instead of raw server text.
+  String _orderErrorMessage(Object error, AppStrings s) {
+    if (error is! OrderPlacementException) return s.orderPlaceFailedMessage;
+    return switch (error.serverMessage) {
+      'Promo code is unavailable' => s.promoCodeUnavailable,
+      'Promo code usage limit reached' => s.promoCodeLimitReached,
+      'Promo code was just exhausted' => s.promoCodeUnavailable,
+      _ => s.orderPlaceFailedMessage,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = context.s;
     final cart = context.watch<CartProvider>();
-    final address = context.watch<AddressProvider>().address;
+    final addressProvider = context.watch<AddressProvider>();
+    final address = addressProvider.address;
+    _maybeRefreshAddressQuote(address, cart.subtotal);
+    _maybeRefreshOrderQuote(cart.subtotal, addressProvider.deliveryEtrapId);
+    final quote = _quote;
 
     return Scaffold(
       backgroundColor: AppColors.neutralGrey,
@@ -140,14 +286,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const SizedBox(height: 12),
           _ItemsCard(cart: cart, strings: s),
           const SizedBox(height: 12),
-          _PromoField(controller: _promoCode, strings: s),
+          _PromoField(
+            controller: _promoCode,
+            strings: s,
+            applied: _promoApplied,
+            loading: _promoLoading,
+            discount: quote?.discount ?? 0,
+            error: _promoError,
+            onApply: _applyPromo,
+            onRemove: _removePromo,
+          ),
           const SizedBox(height: 12),
           _PaymentCard(strings: s),
           const SizedBox(height: 12),
-          _TotalsCard(cart: cart, strings: s),
+          _TotalsCard(cart: cart, quote: quote, strings: s),
         ],
       ),
-      bottomNavigationBar: _BottomBar(cart: cart, strings: s, busy: _placing, onPlaceOrder: cart.isEmpty ? null : () => _handlePlaceOrder(address)),
+      bottomNavigationBar: _BottomBar(
+        cart: cart,
+        quote: quote,
+        strings: s,
+        busy: _placing,
+        onPlaceOrder: (cart.isEmpty || quote == null) ? null : () => _handlePlaceOrder(address),
+      ),
     );
   }
 }
@@ -306,13 +467,13 @@ class _ItemsCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item.dish.name,
+                          item.displayName,
                           style: AppText.body.copyWith(fontWeight: FontWeight.w700),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
-                        Text('${item.quantity} × ${Fmt.money(item.dish.discountedPrice)}', style: AppText.bodyMuted),
+                        Text('${item.quantity} × ${Fmt.money(item.unitPrice)}', style: AppText.bodyMuted),
                       ],
                     ),
                   ),
@@ -334,10 +495,35 @@ class _ItemsCard extends StatelessWidget {
 /// field competing for attention. Tapping it reveals the input; a code that
 /// gets applied collapses back down into a compact success chip.
 class _PromoField extends StatefulWidget {
-  const _PromoField({required this.controller, required this.strings});
+  const _PromoField({
+    required this.controller,
+    required this.strings,
+    required this.applied,
+    required this.loading,
+    required this.discount,
+    required this.error,
+    required this.onApply,
+    required this.onRemove,
+  });
 
   final TextEditingController controller;
   final AppStrings strings;
+
+  /// Whether the backend has confirmed this code and [discount] is real.
+  final bool applied;
+
+  /// True while `_applyPromo` is waiting on the quote request.
+  final bool loading;
+
+  /// The live discount amount for the applied code — 0 until [applied].
+  final double discount;
+
+  /// The backend's rejection reason, translated — shown under the field
+  /// until the next edit or a successful apply.
+  final String? error;
+
+  final VoidCallback onApply;
+  final VoidCallback onRemove;
 
   @override
   State<_PromoField> createState() => _PromoFieldState();
@@ -360,21 +546,14 @@ class _PromoFieldState extends State<_PromoField> {
     });
   }
 
-  void _apply() {
-    if (widget.controller.text.trim().isEmpty) return;
-    _focusNode.unfocus();
-    setState(() => _expanded = false);
-  }
-
   void _remove() {
-    widget.controller.clear();
+    widget.onRemove();
     setState(() => _expanded = false);
   }
 
   @override
   Widget build(BuildContext context) {
     final s = widget.strings;
-    final applied = !_expanded && widget.controller.text.trim().isNotEmpty;
 
     return _Card(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -382,7 +561,7 @@ class _PromoFieldState extends State<_PromoField> {
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
         alignment: Alignment.topCenter,
-        child: applied
+        child: widget.applied
             ? _appliedRow(s)
             : _expanded
             ? _editingRow(s)
@@ -410,40 +589,63 @@ class _PromoFieldState extends State<_PromoField> {
   }
 
   Widget _editingRow(AppStrings s) {
-    return Row(
+    return Column(
       key: const ValueKey('editing'),
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionIcon(icon: AppIcons.discount, color: AppColors.gold, size: 30),
-        const SizedBox(width: 10),
-        Expanded(
-          child: TextField(
-            controller: widget.controller,
-            focusNode: _focusNode,
-            textCapitalization: TextCapitalization.characters,
-            style: AppText.body.copyWith(fontWeight: FontWeight.w700),
-            onSubmitted: (_) => _apply(),
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              filled: false,
-              contentPadding: EdgeInsets.zero,
-              isDense: true,
-              hintText: s.promoCodeHint,
-              hintStyle: AppText.bodyMuted,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _SectionIcon(icon: AppIcons.discount, color: AppColors.gold, size: 30),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: widget.controller,
+                focusNode: _focusNode,
+                enabled: !widget.loading,
+                textCapitalization: TextCapitalization.characters,
+                style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+                onSubmitted: (_) => widget.onApply(),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  filled: false,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                  hintText: s.promoCodeHint,
+                  hintStyle: AppText.bodyMuted,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            if (widget.loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green),
+                ),
+              )
+            else
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: widget.controller,
+                builder: (context, value, _) => TextButton(
+                  onPressed: value.text.trim().isEmpty ? null : widget.onApply,
+                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), foregroundColor: AppColors.green, disabledForegroundColor: AppColors.textMuted),
+                  child: Text(s.promoApply, style: AppText.chip.copyWith(fontWeight: FontWeight.w700)),
+                ),
+              ),
+          ],
         ),
-        const SizedBox(width: 8),
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: widget.controller,
-          builder: (context, value, _) => TextButton(
-            onPressed: value.text.trim().isEmpty ? null : _apply,
-            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), foregroundColor: AppColors.green, disabledForegroundColor: AppColors.textMuted),
-            child: Text(s.promoApply, style: AppText.chip.copyWith(fontWeight: FontWeight.w700)),
+        if (widget.error != null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 40),
+            child: Text(widget.error!, style: AppText.bodyMuted.copyWith(color: AppColors.red, fontSize: 12)),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -460,6 +662,11 @@ class _PromoFieldState extends State<_PromoField> {
             style: AppText.body.copyWith(fontWeight: FontWeight.w700, color: AppColors.green),
           ),
         ),
+        Text(
+          '-${Fmt.money(widget.discount)}',
+          style: AppText.body.copyWith(fontWeight: FontWeight.w700, color: AppColors.green),
+        ),
+        const SizedBox(width: 8),
         InkWell(
           onTap: _remove,
           customBorder: const CircleBorder(),
@@ -541,9 +748,14 @@ class _PaymentOption extends StatelessWidget {
 }
 
 class _TotalsCard extends StatelessWidget {
-  const _TotalsCard({required this.cart, required this.strings});
+  const _TotalsCard({required this.cart, required this.quote, required this.strings});
 
   final CartProvider cart;
+
+  /// The backend's own pricing for this cart — `null` until the first
+  /// `/orders/quote` response arrives. The delivery fee, discount and total
+  /// rows show a loading state rather than a guessed number until then.
+  final OrderQuote? quote;
   final AppStrings strings;
 
   @override
@@ -551,15 +763,32 @@ class _TotalsCard extends StatelessWidget {
     return _Card(
       child: Column(
         children: [
-          _Row(label: strings.dishesTotal, value: Fmt.money(cart.subtotal)),
+          _Row(label: strings.dishesTotal, value: Fmt.money(quote?.subtotal ?? cart.subtotal)),
           const SizedBox(height: 10),
-          _Row(label: strings.deliveryFeeLabel, value: Fmt.money(cart.deliveryFee)),
-          if (cart.discount > 0) ...[const SizedBox(height: 10), _Row(label: strings.discountLabel, value: '-${Fmt.money(cart.discount)}', valueColor: AppColors.orange)],
+          _Row(
+            label: strings.deliveryFeeLabel,
+            value: quote != null ? Fmt.money(quote!.deliveryFee) : '…',
+          ),
+          if (quote != null && quote!.discount > 0) ...[
+            const SizedBox(height: 10),
+            _Row(label: strings.discountLabel, value: '-${Fmt.money(quote!.discount)}', valueColor: AppColors.orange),
+          ],
           const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(color: AppColors.green.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(14)),
-            child: _Row(label: strings.grandTotal, value: Fmt.money(cart.total), bold: true),
+            child: quote != null
+                ? _Row(label: strings.grandTotal, value: Fmt.money(quote!.total), bold: true)
+                : Row(
+                    children: [
+                      Expanded(child: Text(strings.grandTotal, style: AppText.h2.copyWith(fontSize: 18))),
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green),
+                      ),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -591,9 +820,10 @@ class _Row extends StatelessWidget {
 /// whole time the customer scrolls the sections above, so the price never
 /// feels like a surprise revealed only at the very bottom.
 class _BottomBar extends StatelessWidget {
-  const _BottomBar({required this.cart, required this.strings, required this.busy, required this.onPlaceOrder});
+  const _BottomBar({required this.cart, required this.quote, required this.strings, required this.busy, required this.onPlaceOrder});
 
   final CartProvider cart;
+  final OrderQuote? quote;
   final AppStrings strings;
   final bool busy;
   final VoidCallback? onPlaceOrder;
@@ -617,7 +847,14 @@ class _BottomBar extends StatelessWidget {
                 children: [
                   Text(strings.dishesCount(cart.itemCount), style: AppText.bodyMuted),
                   const Spacer(),
-                  Text(Fmt.money(cart.total), style: AppText.h2.copyWith(fontSize: 19)),
+                  if (quote != null)
+                    Text(Fmt.money(quote!.total), style: AppText.h2.copyWith(fontSize: 19))
+                  else
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green),
+                    ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -759,7 +996,10 @@ class _OrderAcceptedDialogState extends State<_OrderAcceptedDialog> {
                           decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.12), shape: BoxShape.circle),
                         ),
                       ),
-                      Image.asset('assets/images/create_order.png', height: 165, fit: BoxFit.contain),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Image.asset('assets/images/create_order.png', height: 165, fit: BoxFit.contain),
+                      ),
                       Positioned(
                         bottom: 14,
                         child: Container(

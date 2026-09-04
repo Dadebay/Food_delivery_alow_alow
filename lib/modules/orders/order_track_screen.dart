@@ -94,7 +94,10 @@ class _OrderTrackScreenState extends State<OrderTrackScreen> {
               courierPoint: order.status.courierVisible
                   ? order.courierPoint
                   : null,
-              routePoints: order.status.courierVisible
+              // Only draw the road once the courier has actually picked up
+              // the order — before that they're heading to the branch, not
+              // to this address, so there's no real route to show yet.
+              routePoints: order.pickedUp
                   ? (order.routePoints ?? const [])
                   : const [],
               padding: const EdgeInsets.fromLTRB(0, 120, 0, 320),

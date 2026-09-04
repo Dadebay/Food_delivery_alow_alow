@@ -27,8 +27,6 @@ class AppConfig {
       'https://a7-tagam.com.tm/tile/{z}/{x}/{y}.png';
   static const String mapUserAgent = 'com.gurbanov.alowalow';
 
-  static const String osrmBaseUrl = 'https://router.project-osrm.org';
-
   /// Ashgabat — map opens here before the customer places a pin.
   static const double defaultLat = 37.9601;
   static const double defaultLng = 58.3261;
@@ -38,6 +36,12 @@ class AppConfig {
   static const double maxZoom = 19.0;
 
   static const Duration tileCacheMaxStale = Duration(days: 30);
+
+  /// How long a cached GET response (menu, order history, ...) stays
+  /// eligible to answer a request once the network call itself fails — see
+  /// `ApiClient`. Menu and order history are worth seeing well after the
+  /// last successful sync, so this is generous rather than tuned tight.
+  static const Duration apiCacheMaxStale = Duration(days: 7);
 
   /// Refresh the customer map shortly after each courier GPS upload.
   static const Duration trackingPollInterval = Duration(seconds: 15);

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_button.dart';
-import '../shell/main_nav_screen.dart';
 import 'onboarding_provider.dart';
 import 'widgets/onboarding_image_page.dart';
 
@@ -41,8 +40,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _finish() async {
     await context.read<OnboardingProvider>().complete();
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const MainNavScreen()));
   }
 
   @override

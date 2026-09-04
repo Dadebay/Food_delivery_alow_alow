@@ -41,7 +41,16 @@ class LocalNotificationsService {
           importance: Importance.high,
           priority: Priority.high,
         ),
-        iOS: DarwinNotificationDetails(),
+        // iOS 14+ reads presentBanner/presentList and ignores presentAlert;
+        // older versions do the reverse. Set all of them so the notification
+        // is presented either way.
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBanner: true,
+          presentList: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
       ),
       payload: payload,
     );

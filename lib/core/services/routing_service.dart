@@ -1,9 +1,4 @@
-import 'dart:developer' as dev;
-
-import 'package:dio/dio.dart';
 import 'package:latlong2/latlong.dart';
-
-import '../constants/app_config.dart';
 
 /// A driving route: the line to draw plus the numbers for the header card.
 class RouteResult {
@@ -29,77 +24,60 @@ class RouteResult {
   bool get isEmpty => points.isEmpty;
 }
 
-/// Turns a list of stops into a drivable line.
+/// Demo-mode-only stand-in for a real route.
 ///
-/// The courier never leaves the app for navigation (slide 8: "маршрут внутри
-/// приложения"), so this runs against our own routing endpoint and the geometry
-/// is drawn on our own tiles.
+/// The customer app never calls a routing provider itself — the real
+/// courier-to-address line comes from the backend (see
+/// `OrderRepository.courierRoute`, which proxies the same self-hosted routing
+/// service the courier app uses). This class only draws a plausible-looking
+/// line for [OrderProvider]'s local demo simulation, where there is no real
+/// order or backend to ask.
 class RoutingService {
-  RoutingService([Dio? dio]) : _dio = dio ?? Dio();
+  const RoutingService();
 
-  final Dio _dio;
-
-  /// Route through [stops] in the given order. The first entry is the courier's
-  /// current position, the rest are delivery points.
+  /// A gently curved line through [stops] — enough for the demo courier
+  /// marker to travel along something other than a single straight segment,
+  /// with a straight-line distance/ETA to match.
   Future<RouteResult> route(List<LatLng> stops) async {
     if (stops.length < 2) return RouteResult.empty;
 
-    final coordinates = stops
-        .map((p) => '${p.longitude},${p.latitude}')
-        .join(';');
-    final url =
-        '${AppConfig.osrmBaseUrl}/route/v1/driving/$coordinates'
-        '?overview=full&geometries=geojson';
-
-    try {
-      final response = await _dio.get(
-        url,
-        options: Options(
-          receiveTimeout: const Duration(seconds: 20),
-          sendTimeout: const Duration(seconds: 20),
-        ),
-      );
-
-      if (response.statusCode != 200) return _straightLine(stops);
-
-      final routes = response.data['routes'] as List<dynamic>?;
-      if (routes == null || routes.isEmpty) return _straightLine(stops);
-
-      final route = routes.first as Map<String, dynamic>;
-      final coords = (route['geometry']['coordinates'] as List<dynamic>)
-          .cast<List<dynamic>>();
-
-      return RouteResult(
-        // GeoJSON is [lng, lat]; LatLng is the other way round.
-        points: coords
-            .map(
-              (c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()),
-            )
-            .toList(),
-        distanceMeters: (route['distance'] as num).toDouble(),
-        durationSeconds: (route['duration'] as num).toDouble(),
-      );
-    } catch (error) {
-      dev.log(
-        'route failed, drawing straight line: $error',
-        name: 'RoutingService',
-      );
-      return _straightLine(stops);
+    final points = <LatLng>[];
+    for (var i = 0; i < stops.length - 1; i++) {
+      points.addAll(_arc(stops[i], stops[i + 1]));
     }
-  }
 
-  /// No routing server / no signal: still show the courier where the stop is by
-  /// connecting the points directly, with the straight-line distance.
-  RouteResult _straightLine(List<LatLng> stops) {
     var meters = 0.0;
     for (var i = 0; i < stops.length - 1; i++) {
       meters += const Distance().as(LengthUnit.Meter, stops[i], stops[i + 1]);
     }
+
     return RouteResult(
-      points: stops,
+      points: points,
       distanceMeters: meters,
-      // Rough city average of 25 km/h so the ETA is not blank.
+      // Rough city average of 25 km/h so the demo ETA is not blank.
       durationSeconds: meters / 1000 / 25 * 3600,
     );
+  }
+
+  /// Interpolated points with a small perpendicular bow, so the line reads
+  /// as a route rather than a ruler-straight demo artifact.
+  List<LatLng> _arc(LatLng from, LatLng to) {
+    const steps = 12;
+    final dLat = to.latitude - from.latitude;
+    final dLng = to.longitude - from.longitude;
+    // Perpendicular to the from→to direction, scaled to a few percent of the
+    // segment's own length.
+    final bowLat = -dLng * 0.06;
+    final bowLng = dLat * 0.06;
+
+    return List.generate(steps + 1, (i) {
+      final t = i / steps;
+      // Peaks at the midpoint, zero at both ends.
+      final bow = 4 * t * (1 - t);
+      return LatLng(
+        from.latitude + dLat * t + bowLat * bow,
+        from.longitude + dLng * t + bowLng * bow,
+      );
+    });
   }
 }

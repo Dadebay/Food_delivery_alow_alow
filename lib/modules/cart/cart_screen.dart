@@ -8,14 +8,24 @@ import '../../core/utils/formatters.dart';
 import '../../core/widgets/app_button.dart';
 import '../auth/auth_provider.dart';
 import '../auth/login_screen.dart';
+import '../checkout/address_provider.dart';
 import '../checkout/checkout_screen.dart';
 import 'cart_provider.dart';
 import 'widgets/cart_line.dart';
 
 /// The cart tab — matches `cust_cart.png`'s order-line list, feeding straight
 /// into checkout.
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  // Guards against re-quoting on every rebuild — only fires again once the
+  // subtotal actually changes. Mirrors the same guard in `CheckoutScreen`.
+  double? _quotedSubtotal;
 
   /// Browsing and building a cart never require an account — this is the one
   /// place that does, since placing an order needs somewhere to send status
@@ -34,10 +44,26 @@ class CartScreen extends StatelessWidget {
     ).push(MaterialPageRoute(builder: (_) => const CheckoutScreen()));
   }
 
+  /// Refreshes the real per-district delivery fee (`POST /delivery/quote`)
+  /// for whatever address the customer already has on file, so the cart tab
+  /// never has to invent one. A guest or a customer with no saved address
+  /// yet just sees the items subtotal, with delivery priced at checkout.
+  void _maybeRefreshDeliveryFee(AddressProvider addresses, double subtotal) {
+    if (addresses.address == null) return;
+    if (_quotedSubtotal == subtotal) return;
+    _quotedSubtotal = subtotal;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) addresses.refreshQuote(subtotal);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = context.s;
     final cart = context.watch<CartProvider>();
+    final addresses = context.watch<AddressProvider>();
+    _maybeRefreshDeliveryFee(addresses, cart.subtotal);
+    final deliveryFee = addresses.deliveryFee;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -52,11 +78,17 @@ class CartScreen extends StatelessWidget {
                 final item = cart.items[index];
                 return CartLine(
                   item: item,
-                  onIncrement: () =>
-                      cart.setQuantity(item.dish, item.quantity + 1),
-                  onDecrement: () =>
-                      cart.setQuantity(item.dish, item.quantity - 1),
-                  onRemove: () => cart.remove(item.dish),
+                  onIncrement: () => cart.setQuantity(
+                    item.dish,
+                    item.quantity + 1,
+                    variant: item.variant,
+                  ),
+                  onDecrement: () => cart.setQuantity(
+                    item.dish,
+                    item.quantity - 1,
+                    variant: item.variant,
+                  ),
+                  onRemove: () => cart.remove(item.dish, variant: item.variant),
                 );
               },
             ),
@@ -81,14 +113,20 @@ class CartScreen extends StatelessWidget {
                         valueColor: AppColors.orange,
                       ),
                     ],
-                    const SizedBox(height: 6),
-                    _SummaryRow(
-                      label: s.deliveryFeeLabel,
-                      value: Fmt.money(cart.deliveryFee),
-                    ),
+                    // Only shown once the backend has priced delivery for
+                    // this address — no client-side guess in the meantime.
+                    if (deliveryFee != null) ...[
+                      const SizedBox(height: 6),
+                      _SummaryRow(
+                        label: s.deliveryFeeLabel,
+                        value: Fmt.money(deliveryFee),
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     AppButton(
-                      label: '${s.goToCheckout} · ${Fmt.money(cart.total)}',
+                      label:
+                          '${s.goToCheckout} · '
+                          '${Fmt.money(cart.subtotal + (deliveryFee ?? 0))}',
                       onPressed: () => _goToCheckout(context),
                     ),
                   ],

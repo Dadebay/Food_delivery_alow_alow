@@ -27,19 +27,20 @@ class CatalogRepository {
     }).toList();
   }
 
+  /// The whole menu in one call.
+  ///
+  /// `categoryId` is optional on this endpoint — leaving it off returns every
+  /// active product. This used to fan out into one request per category and
+  /// wait for all of them, which meant 30-odd round trips before the home
+  /// screen could paint anything; a phone only opens a handful of connections
+  /// at a time, so those requests queued up in waves.
   Future<List<Dish>> dishes() async {
     if (AppConfig.useMockData) {
       await _demoDelay();
       return MockData.dishes();
     }
-    // The server requires categoryId on this endpoint — there's no "give me
-    // everything" call — so the full menu is every category's products
-    // fetched in parallel and flattened.
-    final cats = await categories();
-    final perCategory = await Future.wait(
-      cats.map((category) => dishesForCategory(category.id)),
-    );
-    return perCategory.expand((dishes) => dishes).toList();
+    final response = await _api.get(ApiPaths.products);
+    return _parseDishes(response.data);
   }
 
   Future<List<Dish>> dishesForCategory(String categoryId) async {
@@ -65,10 +66,37 @@ class CatalogRepository {
         description: json['description'] as String? ?? '',
         price: (json['price'] as num).toDouble(),
         categoryId: json['categoryId'].toString(),
-        imageUrl: _imageUrl(json['images']),
+        imageUrl:
+            _absoluteImageUrl(json['displayImageUrl']) ??
+            _imageUrl(json['images']),
+        pricingType: _pricingType(json['pricingType']),
+        minPrice: (json['minPrice'] as num?)?.toDouble(),
+        variantLabel: json['variantLabel'] as String?,
+        variants: _parseVariants(json['variants']),
       );
     }).toList();
   }
+
+  List<DishVariant> _parseVariants(Object? data) {
+    if (data is! List) return const [];
+    return data
+        .map((e) {
+          final json = e as Map<String, dynamic>;
+          return DishVariant(
+            id: json['id'].toString(),
+            name: json['name'] as String,
+            price: (json['price'] as num).toDouble(),
+            description: json['description'] as String?,
+            imageUrl: _imageUrl(json['images']),
+            isActive: json['isActive'] as bool? ?? true,
+          );
+        })
+        .where((variant) => variant.isActive)
+        .toList();
+  }
+
+  DishPricingType _pricingType(Object? value) =>
+      value == 'VARIANT' ? DishPricingType.variant : DishPricingType.fixed;
 
   Future<Set<String>> favoriteIds() async {
     if (AppConfig.useMockData) return const {};

@@ -361,16 +361,16 @@ class _AboutAppDialog extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Text(
-                'N',
-                style: AppText.h1.copyWith(
-                  fontSize: 30,
-                  color: AppColors.white,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Image.asset(
+                  'assets/logo_no_text.png',
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
             const SizedBox(height: 18),
-            Text('Naharym', style: AppText.h2),
+            Text('A7-TAGAM', style: AppText.h2),
             const SizedBox(height: 6),
             Text(
               s.aboutAppTagline,

@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/localization/app_strings.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/models/order.dart';
 import '../../core/models/order_status.dart';
@@ -11,6 +12,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/widgets/app_button.dart';
 import '../../core/widgets/delivery_map.dart';
 import '../../core/widgets/dish_thumbnail.dart';
 import '../../core/widgets/order_status_chip.dart';
@@ -33,6 +35,8 @@ class OrderDetailScreen extends StatefulWidget {
 }
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
+  bool _cancelling = false;
+
   Future<void> _call(String phone) async {
     final uri = Uri(scheme: 'tel', path: phone);
     if (await canLaunchUrl(uri)) await launchUrl(uri);
@@ -43,6 +47,31 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (order.id == widget.orderId) return order;
     }
     return null;
+  }
+
+  Future<void> _cancelOrder(CustomerOrder order, AppStrings s) async {
+    final reason = await _CancelOrderDialog.show(context, strings: s);
+    if (reason == null || !mounted) return;
+
+    setState(() => _cancelling = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await context.read<OrderProvider>().cancelOrder(order, reason: reason);
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(s.orderCancelledMessage)));
+    } catch (error) {
+      if (!mounted) return;
+      final tooLate = error is StateError && error.message == 'order_too_late';
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            tooLate ? s.orderCancelTooLateMessage : s.orderCancelFailedMessage,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
+    }
   }
 
   @override
@@ -104,6 +133,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             ),
             const SizedBox(height: 12),
+            if (order.isCancellable)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: AppButton(
+                  label: s.cancelOrderAction,
+                  icon: AppIcons.cancel,
+                  color: AppColors.redSoft,
+                  textColor: AppColors.red,
+                  busy: _cancelling,
+                  onPressed: () => _cancelOrder(order, s),
+                ),
+              ),
           ],
           if (status == OrderStatus.delivered) ...[
             _Card(
@@ -145,13 +186,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                item.dish.name,
+                                item.displayName,
                                 style: AppText.body.copyWith(fontWeight: FontWeight.w700),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 2),
-                              Text('${item.quantity} × ${Fmt.money(item.dish.price)}', style: AppText.bodyMuted),
+                              Text('${item.quantity} × ${Fmt.money(item.unitPrice)}', style: AppText.bodyMuted),
                             ],
                           ),
                         ),
@@ -360,6 +401,133 @@ class _MapSheet extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Cancellation's own confirmation — a destructive action, so it gets the
+/// same deliberate second tap as sign-out/delete-account, plus a reason
+/// field the server requires and staff later see in the order history.
+class _CancelOrderDialog extends StatefulWidget {
+  const _CancelOrderDialog({required this.strings});
+
+  final AppStrings strings;
+
+  static Future<String?> show(
+    BuildContext context, {
+    required AppStrings strings,
+  }) {
+    return showDialog<String>(
+      context: context,
+      builder: (_) => _CancelOrderDialog(strings: strings),
+    );
+  }
+
+  @override
+  State<_CancelOrderDialog> createState() => _CancelOrderDialogState();
+}
+
+class _CancelOrderDialogState extends State<_CancelOrderDialog> {
+  final _reasonController = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final reason = _reasonController.text.trim();
+    if (reason.isEmpty) {
+      setState(() => _errorText = widget.strings.cancelOrderReasonRequired);
+      return;
+    }
+    Navigator.of(context).pop(reason);
+  }
+
+  static OutlineInputBorder _reasonBorder(Color color, {double width = 1.2}) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: color, width: width),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.strings;
+    return Dialog(
+      backgroundColor: AppColors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 60,
+                height: 60,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: AppColors.redSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: HugeIcon(icon: AppIcons.cancel, color: AppColors.red, size: 26),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(s.cancelOrderConfirmTitle, style: AppText.h2, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text(s.cancelOrderConfirmMessage, style: AppText.bodyMuted, textAlign: TextAlign.center),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _reasonController,
+              maxLength: 500,
+              maxLines: 3,
+              minLines: 1,
+              onChanged: (_) {
+                if (_errorText != null) setState(() => _errorText = null);
+              },
+              // The global input theme is borderless on a white fill, which
+              // vanishes against this dialog's white card — so this field
+              // spells out its own visible outline for every state.
+              decoration: InputDecoration(
+                hintText: s.cancelOrderReasonHint,
+                errorText: _errorText,
+                filled: true,
+                fillColor: AppColors.neutralGrey,
+                border: _reasonBorder(AppColors.divider),
+                enabledBorder: _reasonBorder(AppColors.divider),
+                focusedBorder: _reasonBorder(AppColors.green, width: 1.6),
+                errorBorder: _reasonBorder(AppColors.red),
+                focusedErrorBorder: _reasonBorder(AppColors.red, width: 1.6),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: AppButton.outline(
+                    label: s.cancel,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AppButton(
+                    label: s.cancelOrderAction,
+                    color: AppColors.red,
+                    onPressed: _confirm,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

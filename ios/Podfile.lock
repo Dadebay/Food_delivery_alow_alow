@@ -3,12 +3,19 @@ PODS:
     - Flutter
   - Firebase/CoreOnly (12.15.0):
     - FirebaseCore (~> 12.15.0)
+  - Firebase/Installations (12.15.0):
+    - Firebase/CoreOnly
+    - FirebaseInstallations (~> 12.15.0)
   - Firebase/Messaging (12.15.0):
     - Firebase/CoreOnly
     - FirebaseMessaging (~> 12.15.0)
   - firebase_analytics (12.4.5):
     - firebase_core
     - FirebaseAnalytics (= 12.15.0)
+    - Flutter
+  - firebase_app_installations (0.4.2-6):
+    - Firebase/Installations (= 12.15.0)
+    - firebase_core
     - Flutter
   - firebase_core (4.12.1):
     - Firebase/CoreOnly (= 12.15.0)
@@ -115,6 +122,8 @@ PODS:
   - GoogleUtilities/UserDefaults (8.1.2):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
+  - image_picker_ios (0.0.1):
+    - Flutter
   - location (0.0.1):
     - Flutter
   - nanopb (3.30910.0):
@@ -128,6 +137,9 @@ PODS:
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
+  - sqflite_darwin (0.0.4):
+    - Flutter
+    - FlutterMacOS
   - url_launcher_ios (0.0.1):
     - Flutter
   - video_player_avfoundation (0.0.1):
@@ -137,13 +149,16 @@ PODS:
 DEPENDENCIES:
   - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
   - firebase_analytics (from `.symlinks/plugins/firebase_analytics/ios`)
+  - firebase_app_installations (from `.symlinks/plugins/firebase_app_installations/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
+  - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - location (from `.symlinks/plugins/location/ios`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
   - video_player_avfoundation (from `.symlinks/plugins/video_player_avfoundation/darwin`)
 
@@ -167,6 +182,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/connectivity_plus/ios"
   firebase_analytics:
     :path: ".symlinks/plugins/firebase_analytics/ios"
+  firebase_app_installations:
+    :path: ".symlinks/plugins/firebase_app_installations/ios"
   firebase_core:
     :path: ".symlinks/plugins/firebase_core/ios"
   firebase_messaging:
@@ -175,12 +192,16 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_local_notifications:
     :path: ".symlinks/plugins/flutter_local_notifications/ios"
+  image_picker_ios:
+    :path: ".symlinks/plugins/image_picker_ios/ios"
   location:
     :path: ".symlinks/plugins/location/ios"
   permission_handler_apple:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  sqflite_darwin:
+    :path: ".symlinks/plugins/sqflite_darwin/darwin"
   url_launcher_ios:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
   video_player_avfoundation:
@@ -190,6 +211,7 @@ SPEC CHECKSUMS:
   connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
   Firebase: a8539b633d474fbeb654c7043f9c1649e274045b
   firebase_analytics: eb8345c126a25cd1914597079faf3e64c2e6835f
+  firebase_app_installations: ae9a57544fae9a61360cee0828bc4913646c74ac
   firebase_core: 1c1e250a77e2df9e80bb8bf0875c8b427044a697
   firebase_messaging: 90cf2b62f5058120ab19f29ceff1503ba0f51ba7
   FirebaseAnalytics: 9c9fa7915fc52ea03077000d5a7b6a8947b2d76e
@@ -203,11 +225,13 @@ SPEC CHECKSUMS:
   GoogleAppMeasurement: a6d37949071d456e9147dac6789c4342e0e7a8c5
   GoogleDataTransport: a24e58982ab3ba2f64d79613e027fe7f57e88539
   GoogleUtilities: 766ace00c6b10d8148408f329d10c4f051931850
+  image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   location: 155caecf9da4f280ab5fe4a55f94ceccfab838f8
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   permission_handler_apple: 92d754bbaa7361d436db2d6c3c1c2a0fdcec462e
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
   video_player_avfoundation: 3453f792138786248960ca029747fcd9f318ef52
 

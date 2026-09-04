@@ -45,6 +45,11 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
   final TextEditingController _note = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
+  /// The size/weight currently picked for a VARIANT dish. It deliberately
+  /// starts empty: the API contract forbids silently choosing the cheapest
+  /// option for the customer.
+  DishVariant? _selectedVariant;
+
   @override
   void initState() {
     super.initState();
@@ -127,6 +132,7 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                       DishThumbnail(
                         dish: dish,
                         borderRadius: BorderRadius.zero,
+                        imageUrlOverride: _selectedVariant?.imageUrl,
                       ),
                       // Just enough shade for the badge and buttons to hold
                       // up over a bright photo.
@@ -182,10 +188,16 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                           textBaseline: TextBaseline.alphabetic,
                           children: [
                             Text(
-                              Fmt.money(dish.discountedPrice),
+                              _selectedVariant == null && dish.hasVariants
+                                  ? s.fromPrice(Fmt.money(dish.minimumPrice))
+                                  : Fmt.money(
+                                      _selectedVariant?.price ??
+                                          dish.discountedPrice,
+                                    ),
                               style: AppText.figure.copyWith(fontSize: 22),
                             ),
-                            if (dish.hasDiscount) ...[
+                            if (_selectedVariant == null &&
+                                dish.hasDiscount) ...[
                               const SizedBox(width: 8),
                               Text(
                                 Fmt.money(dish.price),
@@ -196,6 +208,16 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                             ],
                           ],
                         ),
+                        if (dish.hasVariants && dish.variants.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          _VariantPicker(
+                            label: dish.variantLabel,
+                            variants: dish.variants,
+                            selected: _selectedVariant,
+                            onSelected: (variant) =>
+                                setState(() => _selectedVariant = variant),
+                          ),
+                        ],
                         if (dish.description.isNotEmpty) ...[
                           const SizedBox(height: 14),
                           Text(dish.description, style: AppText.bodyMuted),
@@ -223,7 +245,12 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
             left: 0,
             right: 0,
             bottom: 0,
-            child: _AddToCartBar(dish: dish, quantity: _quantity, note: _note),
+            child: _AddToCartBar(
+              dish: dish,
+              variant: _selectedVariant,
+              quantity: _quantity,
+              note: _note,
+            ),
           ),
         ],
       ),
@@ -241,37 +268,105 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
 class _AddToCartBar extends StatelessWidget {
   const _AddToCartBar({
     required this.dish,
+    required this.variant,
     required this.quantity,
     required this.note,
   });
 
   final Dish dish;
+  final DishVariant? variant;
   final int quantity;
   final TextEditingController note;
 
   @override
   Widget build(BuildContext context) {
     final s = context.s;
+    final needsVariant = dish.hasVariants && variant == null;
+    final unitPrice = variant?.price ?? dish.displayedBasePrice;
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
         child: AppButton(
-          label:
-              '${s.addToCart} · ${Fmt.money(dish.discountedPrice * quantity)}',
-          onPressed: () {
-            context.read<CartProvider>().add(
-              dish,
-              quantity: quantity,
-              note: note.text.trim().isEmpty ? null : note.text.trim(),
-            );
-            AnalyticsService.instance.addedToCart(dish, quantity);
-            CartFlyAnimation.runFrom(fromContext: context, imageUrl: dish.imageUrl);
-            // Stays on the page — the customer might still add dishes from
-            // the "more from this category" shelf below.
-          },
+          label: needsVariant
+              ? s.selectVariantFirst
+              : '${s.addToCart} · ${Fmt.money(unitPrice * quantity)}',
+          onPressed: needsVariant
+              ? null
+              : () {
+                  context.read<CartProvider>().add(
+                    dish,
+                    variant: variant,
+                    quantity: quantity,
+                    note: note.text.trim().isEmpty ? null : note.text.trim(),
+                  );
+                  AnalyticsService.instance.addedToCart(dish, quantity);
+                  // Started before popping — the overlay it flies in is
+                  // attached to the root navigator, so the animation keeps
+                  // playing over whatever screen this pop reveals.
+                  CartFlyAnimation.runFrom(
+                    fromContext: context,
+                    imageUrl: variant?.imageUrl ?? dish.imageUrl,
+                  );
+                  Navigator.of(context).pop();
+                },
         ),
       ),
+    );
+  }
+}
+
+/// Rounded, admin-labelled choice chips for picking one of the dish's
+/// variants (size, weight, ...) — the only way to change what's about to be
+/// added, since the fixed on-page quantity of 1 means this row is the whole
+/// "configure before adding" step for a dish with variants.
+class _VariantPicker extends StatelessWidget {
+  const _VariantPicker({
+    required this.label,
+    required this.variants,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String? label;
+  final List<DishVariant> variants;
+  final DishVariant? selected;
+  final ValueChanged<DishVariant> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label != null && label!.isNotEmpty) ...[
+          Text(
+            label!,
+            style: AppText.bodyMuted.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+        ],
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: variants.map((variant) {
+            final active = variant.id == selected?.id;
+            return ChoiceChip(
+              label: Text(variant.name),
+              selected: active,
+              onSelected: (_) => onSelected(variant),
+              showCheckmark: false,
+              labelStyle: AppText.chip.copyWith(
+                fontWeight: FontWeight.w700,
+                color: active ? AppColors.white : AppColors.textPrimary,
+              ),
+              backgroundColor: AppColors.cream,
+              selectedColor: AppColors.orange,
+              side: BorderSide.none,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

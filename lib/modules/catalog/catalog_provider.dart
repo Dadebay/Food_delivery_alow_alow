@@ -29,7 +29,7 @@ class CatalogProvider extends ChangeNotifier {
   Object? _error;
   String _query = '';
   final Random _homeRandom = Random();
-  List<String> _homeCategoryIds = const [];
+  List<DishCategory> _homeCategories = const [];
   Map<String, List<Dish>> _homeDishes = const {};
 
   List<DishCategory> get categories => _categories;
@@ -41,9 +41,12 @@ class CatalogProvider extends ChangeNotifier {
   /// A welcoming home feed feels fresher when its category shelves and the
   /// dishes inside them are re-dealt once for every app session. Catalogue
   /// editing and category-specific screens retain their normal stable order.
-  List<DishCategory> get homeCategories => _homeCategoryIds
-      .map((id) => _categories.where((category) => category.id == id).first)
-      .toList(growable: false);
+  ///
+  /// Stored pre-shuffled rather than as ids resolved on every read: the home
+  /// feed re-reads this once per shelf as it scrolls into view, and looking
+  /// each id back up in `_categories` on every one of those reads was a
+  /// linear scan repeated for every scroll tick.
+  List<DishCategory> get homeCategories => _homeCategories;
 
   List<Dish> homeDishesForCategory(String categoryId) =>
       _homeDishes[categoryId] ?? const [];
@@ -56,17 +59,14 @@ class CatalogProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // The server has no "all products" call — categoryId is required —
-      // so categories load first, then every category's dishes load in
-      // parallel off that list, rather than each fetching categories again.
-      final categories = await _repository.categories();
-      final perCategory = await Future.wait(
-        categories.map(
-          (category) => _repository.dishesForCategory(category.id),
-        ),
-      );
-      _categories = categories;
-      _dishes = perCategory.expand((dishes) => dishes).toList();
+      // Categories are a few hundred bytes and the chips depend on nothing
+      // else, so they are published as soon as they land — the header stops
+      // being a blank skeleton while the much larger product list is still
+      // in flight.
+      _categories = await _repository.categories();
+      notifyListeners();
+
+      _dishes = await _repository.dishes();
       _applyFavorites();
       _randomizeHomeMenu();
     } catch (error) {
@@ -145,7 +145,7 @@ class CatalogProvider extends ChangeNotifier {
             )
             .toList()
           ..shuffle(_homeRandom);
-    _homeCategoryIds = categories.map((category) => category.id).toList();
+    _homeCategories = categories;
     _homeDishes = {
       for (final category in categories)
         category.id: (List<Dish>.from(

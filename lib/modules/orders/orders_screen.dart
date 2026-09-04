@@ -33,7 +33,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void _reorder(CustomerOrder order) {
     final cart = context.read<CartProvider>();
     for (final item in order.items) {
-      cart.add(item.dish, quantity: item.quantity, note: item.note);
+      cart.add(
+        item.dish,
+        variant: item.variant,
+        quantity: item.quantity,
+        note: item.note,
+      );
     }
     context.read<TabSwitcher>().go(2);
   }

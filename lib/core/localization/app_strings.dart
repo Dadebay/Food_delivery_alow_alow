@@ -45,6 +45,8 @@ abstract class AppStrings {
   String get noteLabel;
   String get quantityLabel;
   String get moreFromCategory;
+  String fromPrice(String price);
+  String get selectVariantFirst;
 
   // ─── Cart ────────────────────────────────────────────────────
   String get cartTitle;
@@ -77,12 +79,17 @@ abstract class AppStrings {
   String get apartmentLabel;
   String get districtLabel;
   String get addressNoteHint;
+  String get addressSearchHint;
+  String get addressSearchNoResults;
+  String get addressSearchOrPin;
+  String get alsoKnownAs;
   String get orderPlacedTitle;
   String get orderPlacedHint;
   String get promoCodeLabel;
   String get promoCodeHint;
   String get promoCodePrompt;
   String get promoApply;
+  String promoDiscountApplied(String amount);
   String get itemsSummaryLabel;
   String get changeAddress;
 
@@ -95,6 +102,17 @@ abstract class AppStrings {
   String get showOnMap;
   String get orderItemsTitle;
   String get deliveryAddressTitle;
+  String get cancelOrderAction;
+  String get cancelOrderConfirmTitle;
+  String get cancelOrderConfirmMessage;
+  String get cancelOrderReasonHint;
+  String get cancelOrderReasonRequired;
+  String get orderCancelledMessage;
+  String get orderCancelFailedMessage;
+  String get orderCancelTooLateMessage;
+  String get orderPlaceFailedMessage;
+  String get promoCodeUnavailable;
+  String get promoCodeLimitReached;
 
   // ─── Tracking ────────────────────────────────────────────────
   String get deliveryTimeLabel;
@@ -252,6 +270,10 @@ class StringsRu extends AppStrings {
   String get quantityLabel => 'Количество';
   @override
   String get moreFromCategory => 'Ещё из этого раздела';
+  @override
+  String fromPrice(String price) => 'от $price';
+  @override
+  String get selectVariantFirst => 'Сначала выберите вариант';
 
   @override
   String get cartTitle => 'Корзина';
@@ -284,7 +306,7 @@ class StringsRu extends AppStrings {
   @override
   String get payCard => 'Карта';
   @override
-  String get payCardPhase2 => '2-й этап';
+  String get payCardPhase2 => 'Скоро';
   @override
   String get dishesTotal => 'Блюда';
   @override
@@ -312,6 +334,15 @@ class StringsRu extends AppStrings {
   @override
   String get addressNoteHint => 'Например: домофон не работает, позвоните';
   @override
+  String get addressSearchHint => 'Найти адрес';
+  @override
+  String get addressSearchNoResults => 'Ничего не найдено';
+  @override
+  String get addressSearchOrPin =>
+      'Найдите адрес или поставьте маркер на карте';
+  @override
+  String get alsoKnownAs => 'Также:';
+  @override
   String get orderPlacedTitle => 'Заказ оформлен';
   @override
   String get orderPlacedHint =>
@@ -324,6 +355,9 @@ class StringsRu extends AppStrings {
   String get promoCodePrompt => 'Есть промокод?';
   @override
   String get promoApply => 'Применить';
+  @override
+  String promoDiscountApplied(String amount) =>
+      'Промокод применён! Скидка $amount';
   @override
   String get itemsSummaryLabel => 'Ваш заказ';
   @override
@@ -345,6 +379,33 @@ class StringsRu extends AppStrings {
   String get orderItemsTitle => 'Состав заказа';
   @override
   String get deliveryAddressTitle => 'Адрес доставки';
+  @override
+  String get cancelOrderAction => 'Отменить заказ';
+  @override
+  String get cancelOrderConfirmTitle => 'Отменить заказ?';
+  @override
+  String get cancelOrderConfirmMessage =>
+      'Это действие нельзя отменить. Заказ будет отменён полностью.';
+  @override
+  String get cancelOrderReasonHint => 'Укажите причину отмены';
+  @override
+  String get cancelOrderReasonRequired => 'Введите причину отмены';
+  @override
+  String get orderCancelledMessage => 'Заказ отменён';
+  @override
+  String get orderCancelFailedMessage =>
+      'Не удалось отменить заказ. Попробуйте ещё раз.';
+  @override
+  String get orderCancelTooLateMessage =>
+      'Заказ уже принят в работу — отменить его может только оператор. '
+      'Позвоните нам, пожалуйста.';
+  @override
+  String get orderPlaceFailedMessage =>
+      'Не удалось оформить заказ. Попробуйте ещё раз.';
+  @override
+  String get promoCodeUnavailable => 'Промокод недействителен или истёк';
+  @override
+  String get promoCodeLimitReached => 'Вы уже использовали этот промокод';
 
   @override
   String get deliveryTimeLabel => 'ВРЕМЯ ДОСТАВКИ';
@@ -586,6 +647,10 @@ class StringsTm extends AppStrings {
   String get quantityLabel => 'Sany';
   @override
   String get moreFromCategory => 'Bu bölümden ýene';
+  @override
+  String fromPrice(String price) => '$price-den başlap';
+  @override
+  String get selectVariantFirst => 'Ilki görnüşini saýlaň';
 
   @override
   String get cartTitle => 'Sebet';
@@ -617,7 +682,7 @@ class StringsTm extends AppStrings {
   @override
   String get payCard => 'Kart';
   @override
-  String get payCardPhase2 => '2-nji tapgyr';
+  String get payCardPhase2 => 'Ýakynda';
   @override
   String get dishesTotal => 'Tagamlar';
   @override
@@ -645,6 +710,14 @@ class StringsTm extends AppStrings {
   @override
   String get addressNoteHint => 'Mysal üçin: domofon işlänok, jaň ediň';
   @override
+  String get addressSearchHint => 'Salgyny gözle';
+  @override
+  String get addressSearchNoResults => 'Hiç zat tapylmady';
+  @override
+  String get addressSearchOrPin => 'Salgyny gözläň ýa-da kartada nyşan goýuň';
+  @override
+  String get alsoKnownAs => 'Şeýle-de:';
+  @override
   String get orderPlacedTitle => 'Sargyt kabul edildi';
   @override
   String get orderPlacedHint =>
@@ -657,6 +730,9 @@ class StringsTm extends AppStrings {
   String get promoCodePrompt => 'Promokodyňyz barmy?';
   @override
   String get promoApply => 'Ulanmak';
+  @override
+  String promoDiscountApplied(String amount) =>
+      'Promokod ulanyldy! Arzanladyş: $amount';
   @override
   String get itemsSummaryLabel => 'Sargydyňyz';
   @override
@@ -678,6 +754,33 @@ class StringsTm extends AppStrings {
   String get orderItemsTitle => 'Sargydyň düzümi';
   @override
   String get deliveryAddressTitle => 'Gowşuryş salgysy';
+  @override
+  String get cancelOrderAction => 'Sargydy ýatyr';
+  @override
+  String get cancelOrderConfirmTitle => 'Sargydy ýatyrmak isleýärsiňizmi?';
+  @override
+  String get cancelOrderConfirmMessage =>
+      'Bu hereketi yzyna gaýtaryp bolmaz. Sargyt doly ýatyrylar.';
+  @override
+  String get cancelOrderReasonHint => 'Ýatyrmagyň sebäbini ýazyň';
+  @override
+  String get cancelOrderReasonRequired => 'Ýatyrmagyň sebäbini giriziň';
+  @override
+  String get orderCancelledMessage => 'Sargyt ýatyryldy';
+  @override
+  String get orderCancelFailedMessage =>
+      'Sargydy ýatyryp bolmady. Täzeden synanyşyň.';
+  @override
+  String get orderCancelTooLateMessage =>
+      'Sargyt eýýäm işe alyndy — ony diňe operator ýatyryp biler. '
+      'Bize jaň ediň.';
+  @override
+  String get orderPlaceFailedMessage =>
+      'Sargyt bermek başartmady. Täzeden synanyşyň.';
+  @override
+  String get promoCodeUnavailable => 'Promokod nädogry ýa-da möhleti geçen';
+  @override
+  String get promoCodeLimitReached => 'Siz eýýäm bu promokody ulandyňyz';
 
   @override
   String get deliveryTimeLabel => 'GOWŞURYŞ WAGTY';

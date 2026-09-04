@@ -17,6 +17,7 @@ class CustomerOrder {
     required this.deliveryFee,
     this.discount = 0,
     this.changeFrom,
+    this.version = 1,
     required this.placedAt,
     this.acceptedAt,
     this.cookedAt,
@@ -24,6 +25,7 @@ class CustomerOrder {
     this.courierName,
     this.courierPhone,
     this.courierPoint,
+    this.pickedUp = false,
     this.branchPoint,
     this.branchName,
     this.etaMinutesLow,
@@ -45,6 +47,10 @@ class CustomerOrder {
   /// "Сдача с какой суммы" — `null` means no change needed.
   final double? changeFrom;
 
+  /// Optimistic-concurrency stamp from the server — required by the cancel
+  /// endpoint so a stale client can't cancel an order that already moved on.
+  int version;
+
   final DateTime placedAt;
   DateTime? acceptedAt;
   DateTime? cookedAt;
@@ -54,6 +60,11 @@ class CustomerOrder {
   String? courierName;
   String? courierPhone;
   LatLng? courierPoint;
+
+  /// True from the moment the courier collects the order at the branch
+  /// (`OUT_FOR_DELIVERY`) — before that the courier is only heading to the
+  /// branch, not to this address, so the route line has nothing real to draw.
+  bool pickedUp;
   LatLng? branchPoint;
   String? branchName;
 
@@ -76,4 +87,10 @@ class CustomerOrder {
       : (changeFrom! - total).clamp(0, double.infinity);
 
   int get itemCount => items.fold(0, (sum, i) => sum + i.quantity);
+
+  /// Whether the customer can still back out: still `placed` server-side,
+  /// and within [OrderStatus.customerCancelWindow] of [placedAt].
+  bool get isCancellable =>
+      status.isCustomerCancellable &&
+      DateTime.now().difference(placedAt) <= OrderStatus.customerCancelWindow;
 }

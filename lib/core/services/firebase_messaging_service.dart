@@ -32,6 +32,19 @@ class FirebaseMessagingService {
       '36',
     );
 
+    // iOS routes *every* foreground notification through firebase_messaging's
+    // UNUserNotificationCenter delegate — including the local ones we post
+    // ourselves, which carry no `gcm.message_id`. That delegate answers with
+    // whatever is persisted here, so leaving these at their `false` default
+    // suppresses our own local notifications too. Keeping them true is what
+    // makes anything appear at all while the app is open.
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       AnalyticsService.instance.notificationOpened(message);
@@ -104,6 +117,15 @@ class FirebaseMessagingService {
       debugPrint('$cyan║$reset DATA: ${message.data}');
       debugPrint('$cyan╚═════════════════════════════════════════╝$reset');
     }
+    // Android never displays a foreground push on its own, so we always post
+    // one. iOS already presented the alert natively by the time this runs
+    // (see setForegroundNotificationPresentationOptions), so posting again
+    // there would show the same thing twice — unless the payload was
+    // data-only, in which case iOS showed nothing and it is on us.
+    final iosAlreadyShown =
+        defaultTargetPlatform == TargetPlatform.iOS && notification != null;
+    if (iosAlreadyShown) return;
+
     await LocalNotificationsService.instance.show(
       title: title,
       body: body,

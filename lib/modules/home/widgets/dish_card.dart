@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/localization/locale_provider.dart';
 import '../../../core/models/dish.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -124,7 +125,7 @@ class DishCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      _QuickAdd(dish: dish),
+                      _QuickAdd(dish: dish, onOpenDetail: onTap),
                     ],
                   ),
                 ),
@@ -153,7 +154,9 @@ class _Price extends StatelessWidget {
         textBaseline: TextBaseline.alphabetic,
         children: [
           Text(
-            Fmt.money(dish.discountedPrice),
+            dish.hasVariants
+                ? context.s.fromPrice(Fmt.money(dish.minimumPrice))
+                : Fmt.money(dish.discountedPrice),
             style: AppText.figure.copyWith(fontSize: 15),
           ),
           if (dish.hasDiscount) ...[
@@ -177,9 +180,13 @@ class _Price extends StatelessWidget {
 /// together, which makes the first add feel intentional instead of like a
 /// sudden replacement of two unrelated buttons.
 class _QuickAdd extends StatelessWidget {
-  const _QuickAdd({required this.dish});
+  const _QuickAdd({required this.dish, required this.onOpenDetail});
 
   final Dish dish;
+
+  /// A dish with variants can't be quick-added — the price depends on which
+  /// one, so the "+" opens the detail sheet to pick it instead.
+  final VoidCallback onOpenDetail;
 
   static const _height = 38.0;
   static const _addWidth = 38.0;
@@ -188,6 +195,19 @@ class _QuickAdd extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (dish.hasVariants) {
+      return SizedBox(
+        width: _addWidth,
+        height: _height,
+        child: Material(
+          color: AppColors.orange,
+          borderRadius: BorderRadius.circular(_radius),
+          clipBehavior: Clip.antiAlias,
+          child: _AddButton(onTap: onOpenDetail),
+        ),
+      );
+    }
+
     final quantity = context.select<CartProvider, int>(
       (cart) => cart.quantityOf(dish),
     );

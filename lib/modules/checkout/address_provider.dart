@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/models/delivery_address.dart';
+import '../../core/models/delivery_quote.dart';
 import '../../core/models/saved_address.dart';
 import '../../core/data/address_repository.dart';
 
@@ -16,12 +17,56 @@ class AddressProvider extends ChangeNotifier {
   List<SavedAddress> _saved = const [];
   bool _loading = false;
 
+  /// The real, district-priced quote for [_address] — `null` until
+  /// [refreshQuote] resolves, or when there's nothing better than the flat
+  /// fallback rate to show (see [AddressRepository.quote]).
+  DeliveryQuote? _quote;
+
   DeliveryAddress? get address => _address;
   List<SavedAddress> get saved => _saved;
   bool get loading => _loading;
+  DeliveryQuote? get quote => _quote;
+
+  /// The etrap the last quote matched, if any — sent back as
+  /// `deliveryEtrapId` when placing the order so the server charges exactly
+  /// the fee just shown instead of re-resolving the coordinates itself.
+  int? get deliveryEtrapId => _quote?.etrapId;
+
+  /// The backend's own per-district delivery fee for the current address —
+  /// `null` until [refreshQuote] resolves. Never guessed on the client: a
+  /// screen with no live quote yet must show a loading state, not a made-up
+  /// number.
+  double? get deliveryFee => _quote?.fee;
 
   void set(DeliveryAddress address) {
     _address = address;
+    _quote = null;
+    notifyListeners();
+  }
+
+  /// Re-quotes [_address] for [subtotal] against the backend's live
+  /// per-etrap pricing. Safe to call repeatedly (e.g. once per checkout
+  /// build whenever the address or subtotal changed) — a failed or demo-mode
+  /// lookup just clears the quote and callers fall back to the flat rate.
+  Future<void> refreshQuote(double subtotal) async {
+    final point = _address?.point;
+    if (point == null) {
+      if (_quote != null) {
+        _quote = null;
+        notifyListeners();
+      }
+      return;
+    }
+    final result = await _repository.quote(point: point, subtotal: subtotal);
+    debugPrint(
+      result == null
+          ? '[DeliveryQuote] ${point.latitude},${point.longitude} → '
+                'no quote (mock mode, network error, or non-2xx response)'
+          : '[DeliveryQuote] ${point.latitude},${point.longitude} → '
+                'fee=${result.fee} matched=${result.matched} '
+                'etrapId=${result.etrapId} etrap=${result.etrapNameRu}',
+    );
+    _quote = result;
     notifyListeners();
   }
 
@@ -31,7 +76,10 @@ class AddressProvider extends ChangeNotifier {
     try {
       _saved = await _repository.list();
       final active = _saved.where((item) => item.isActive).firstOrNull;
-      if (active != null) _address = active.address;
+      if (active != null) {
+        _address = active.address;
+        _quote = null;
+      }
     } catch (_) {
       // This runs fire-and-forget from screen initState callbacks — a
       // network hiccup or an expired session here must not crash whatever
@@ -55,6 +103,7 @@ class AddressProvider extends ChangeNotifier {
   Future<void> selectSaved(SavedAddress address) async {
     await _repository.activate(address.id);
     _address = address.address;
+    _quote = null;
     _saved = _saved
         .map(
           (item) => SavedAddress(

@@ -47,6 +47,13 @@ enum OrderStatus {
   bool get isOpen =>
       this != OrderStatus.delivered && this != OrderStatus.cancelled;
 
+  /// Cancelling only means anything while the order is still running —
+  /// once it's delivered or already cancelled there is nothing to back out of.
+  bool get isCustomerCancellable => isOpen;
+
+  /// The customer may cancel within this long of placing the order.
+  static const customerCancelWindow = Duration(minutes: 15);
+
   /// Whether the live map/courier marker makes sense to show yet.
   bool get courierVisible => this == OrderStatus.onTheWay;
 

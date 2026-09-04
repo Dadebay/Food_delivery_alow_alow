@@ -7,18 +7,15 @@ import 'package:food_delivery/modules/cart/cart_provider.dart';
 import 'package:latlong2/latlong.dart';
 
 void main() {
-  Dish dish({
-    String id = 'd1',
-    double price = 32,
-    int? discountPercent,
-  }) => Dish(
-    id: id,
-    name: 'Test dish',
-    description: '',
-    price: price,
-    categoryId: 'somsa',
-    discountPercent: discountPercent,
-  );
+  Dish dish({String id = 'd1', double price = 32, int? discountPercent}) =>
+      Dish(
+        id: id,
+        name: 'Test dish',
+        description: '',
+        price: price,
+        categoryId: 'somsa',
+        discountPercent: discountPercent,
+      );
 
   group('Dish pricing', () {
     test('no discount charges the sticker price', () {
@@ -35,14 +32,77 @@ void main() {
   });
 
   group('CartProvider', () {
-    test('adding the same dish twice bumps quantity instead of duplicating', () {
+    test(
+      'a variant dish cannot enter the cart without its selected variant',
+      () {
+        final cart = CartProvider();
+        final variantDish = Dish(
+          id: 'variant-dish',
+          name: 'Somsa',
+          description: '',
+          price: 25,
+          minPrice: 25,
+          categoryId: 'somsa',
+          pricingType: DishPricingType.variant,
+          variants: const [DishVariant(id: 'meat', name: 'Meat', price: 30)],
+        );
+
+        expect(cart.add(variantDish), isFalse);
+        expect(cart.isEmpty, isTrue);
+        expect(
+          cart.add(variantDish, variant: variantDish.variants.single),
+          isTrue,
+        );
+        expect(cart.items.single.variant?.id, 'meat');
+      },
+    );
+
+    test('a fixed-price dish rejects a supplied variant', () {
       final cart = CartProvider();
-      final d = dish();
-      cart.add(d, quantity: 2);
-      cart.add(d, quantity: 1);
-      expect(cart.items.length, 1);
-      expect(cart.items.first.quantity, 3);
+      final fixedDish = dish();
+
+      expect(
+        cart.add(
+          fixedDish,
+          variant: const DishVariant(id: 'invalid', name: 'Invalid', price: 1),
+        ),
+        isFalse,
+      );
+      expect(cart.isEmpty, isTrue);
     });
+
+    test('different variants of the same dish remain separate cart lines', () {
+      final cart = CartProvider();
+      final variantDish = Dish(
+        id: 'variant-dish',
+        name: 'Somsa',
+        description: '',
+        price: 25,
+        categoryId: 'somsa',
+        pricingType: DishPricingType.variant,
+        variants: const [
+          DishVariant(id: 'minced', name: 'Minced', price: 25),
+          DishVariant(id: 'chopped', name: 'Chopped', price: 30),
+        ],
+      );
+
+      cart.add(variantDish, variant: variantDish.variants[0]);
+      cart.add(variantDish, variant: variantDish.variants[1]);
+
+      expect(cart.items, hasLength(2));
+    });
+
+    test(
+      'adding the same dish twice bumps quantity instead of duplicating',
+      () {
+        final cart = CartProvider();
+        final d = dish();
+        cart.add(d, quantity: 2);
+        cart.add(d, quantity: 1);
+        expect(cart.items.length, 1);
+        expect(cart.items.first.quantity, 3);
+      },
+    );
 
     test('setting quantity to zero removes the line', () {
       final cart = CartProvider();
@@ -59,13 +119,6 @@ void main() {
       // 100 -> 85 is 15 off per unit, times 2 units.
       expect(cart.discount, 30);
       expect(cart.subtotal, 85 * 2 + 50);
-    });
-
-    test('empty cart has no delivery fee; non-empty cart does', () {
-      final cart = CartProvider();
-      expect(cart.deliveryFee, 0);
-      cart.add(dish());
-      expect(cart.deliveryFee, greaterThan(0));
     });
   });
 

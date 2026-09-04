@@ -64,6 +64,7 @@ class CartLine extends StatelessWidget {
             child: DishThumbnail(
               dish: item.dish,
               borderRadius: BorderRadius.circular(14),
+              imageUrlOverride: item.variant?.imageUrl,
             ),
           ),
           const SizedBox(width: 14),
@@ -76,7 +77,7 @@ class CartLine extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        item.dish.name,
+                        item.displayName,
                         style: AppText.body.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -103,7 +104,7 @@ class CartLine extends StatelessWidget {
                 // pricing one dish here, and sees the total already, bigger,
                 // in the summary below.
                 Text(
-                  Fmt.money(item.dish.discountedPrice),
+                  Fmt.money(item.unitPrice),
                   style: AppText.bodyMuted.copyWith(
                     fontWeight: FontWeight.w600,
                     color: AppColors.textSecondary,

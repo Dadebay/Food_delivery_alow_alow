@@ -63,8 +63,11 @@ class CartBar extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
+                          // Items only — delivery isn't priced yet at this
+                          // point (no address chosen), and this bar isn't
+                          // the place to guess it.
                           Text(
-                            Fmt.money(cart.total),
+                            Fmt.money(cart.subtotal),
                             style: AppText.button.copyWith(
                               color: AppColors.white,
                             ),

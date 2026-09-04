@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -26,6 +27,22 @@ class CategoryScreen extends StatefulWidget {
 
 class _CategoryScreenState extends State<CategoryScreen> {
   final _scrollController = ScrollController();
+
+  /// When the grid first became visible. `GridView.builder` builds a tile the
+  /// moment it scrolls into range, so an index-based entrance delay makes a
+  /// tile built on scroll wait its whole stagger before appearing — with 40
+  /// categories the last one sat blank for over a second. The entrance is a
+  /// first-paint flourish, so it only applies to tiles built right after the
+  /// grid appeared; anything built later is a scroll, and must be instant.
+  DateTime? _shownAt;
+
+  /// Past this point a tile is being built because the courier scrolled to
+  /// it, not because the screen just opened.
+  static const _entranceWindow = Duration(milliseconds: 500);
+
+  /// Cards past the first screenful all start together — the stagger exists
+  /// to make the opening screen read as composed, not to delay row 12.
+  static const _staggerLimit = 6;
 
   /// List view gives each card far more height, so the same pixel drift
   /// reads as a much more obvious parallax move than it does squeezed into
@@ -60,6 +77,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   Widget build(BuildContext context) {
     final s = context.s;
     final catalog = context.watch<CatalogProvider>();
+    if (!catalog.loading) _shownAt ??= DateTime.now();
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -89,6 +107,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
         ],
       ),
       body: catalog.loading
+          // Stamped once, when the grid actually appears — the entrance
+          // window is measured from there, not from the first tile built.
           ? ColoredBox(
               color: AppColors.loaderBackground,
               child: Center(
@@ -108,22 +128,29 @@ class _CategoryScreenState extends State<CategoryScreen> {
               itemBuilder: (context, index) {
                 final category = catalog.categories[index];
                 final dishes = catalog.forCategory(category.id);
-                return _ParallaxCategoryCard(
-                      scrollController: _scrollController,
-                      // The admin-selected cover always takes precedence.
-                      // Keep a product photo as a helpful fallback for
-                      // older categories.
-                      imageUrl:
-                          category.imageUrl ??
-                          (dishes.isEmpty ? null : dishes.first.imageUrl),
-                      name: category.name,
-                      countLabel: s.dishesCount(dishes.length),
-                      tint: _palette[index % _palette.length],
-                      onTap: () => _openCategory(context, category),
-                    )
-                    // Staggered pop-in — the grid reads as composed rather
-                    // than just appearing all at once.
-                    .animate(delay: (35 * index).ms)
+                final shownAt = _shownAt;
+                final isFirstPaint =
+                    shownAt != null &&
+                    DateTime.now().difference(shownAt) < _entranceWindow;
+                final card = _ParallaxCategoryCard(
+                  scrollController: _scrollController,
+                  // The admin-selected cover always takes precedence.
+                  // Keep a product photo as a helpful fallback for
+                  // older categories.
+                  imageUrl:
+                      category.imageUrl ??
+                      (dishes.isEmpty ? null : dishes.first.imageUrl),
+                  name: category.name,
+                  countLabel: s.dishesCount(dishes.length),
+                  tint: _palette[index % _palette.length],
+                  onTap: () => _openCategory(context, category),
+                );
+                if (!isFirstPaint) return card;
+                // Staggered pop-in — the grid reads as composed rather
+                // than just appearing all at once.
+                final step = index < _staggerLimit ? index : _staggerLimit;
+                return card
+                    .animate(delay: (35 * step).ms)
                     .fadeIn(duration: 360.ms, curve: Curves.easeOut)
                     .slideY(
                       begin: 0.14,
@@ -148,9 +175,15 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 }
 
-/// Tracks how far this box has scrolled from screen-centre and hands the
-/// pixel offset to [builder] — the shared plumbing behind every parallax
-/// tile on this screen, grid tile or list row alike.
+/// Tracks how far this box has scrolled from screen-centre and publishes the
+/// pixel offset as a [ValueListenable] — the shared plumbing behind every
+/// parallax tile on this screen, grid tile or list row alike.
+///
+/// The offset is deliberately *not* held in [State]: a `setState` per scroll
+/// tick rebuilt every visible card's whole subtree — photo, gradient, labels
+/// — several times a frame, which is what made a fast flick through 40
+/// categories stutter. Handing out a listenable lets each card rebuild just
+/// its [Transform] layer and leave the expensive children untouched.
 class _ScrollDrift extends StatefulWidget {
   const _ScrollDrift({
     required this.controller,
@@ -160,7 +193,8 @@ class _ScrollDrift extends StatefulWidget {
 
   final ScrollController controller;
   final double range;
-  final Widget Function(BuildContext context, double shift) builder;
+  final Widget Function(BuildContext context, ValueListenable<double> shift)
+  builder;
 
   @override
   State<_ScrollDrift> createState() => _ScrollDriftState();
@@ -168,7 +202,7 @@ class _ScrollDrift extends StatefulWidget {
 
 class _ScrollDriftState extends State<_ScrollDrift> {
   final _key = GlobalKey();
-  double _shift = 0;
+  final _shift = ValueNotifier<double>(0);
 
   @override
   void initState() {
@@ -180,6 +214,7 @@ class _ScrollDriftState extends State<_ScrollDrift> {
   @override
   void dispose() {
     widget.controller.removeListener(_update);
+    _shift.dispose();
     super.dispose();
   }
 
@@ -190,7 +225,9 @@ class _ScrollDriftState extends State<_ScrollDrift> {
     final centerY = box.localToGlobal(Offset.zero).dy + box.size.height / 2;
     final fraction = ((centerY - viewport / 2) / viewport).clamp(-0.6, 0.6);
     final next = fraction * widget.range;
-    if ((next - _shift).abs() > 0.4) setState(() => _shift = next);
+    // Sub-pixel drift is invisible; skipping it keeps a slow scroll from
+    // repainting on every single tick.
+    if ((next - _shift.value).abs() > 0.4) _shift.value = next;
   }
 
   @override
@@ -264,9 +301,15 @@ class _ParallaxCategoryCard extends StatelessWidget {
                   bottom: -_bleed,
                   left: 0,
                   right: 0,
-                  child: Transform.translate(
-                    offset: Offset(0, shift),
+                  // The photo is passed as `child`, so it is built once and
+                  // only the translation is recomputed as the card drifts.
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: shift,
                     child: _CategoryImage(url: imageUrl, tint: tint),
+                    builder: (context, value, child) => Transform.translate(
+                      offset: Offset(0, value),
+                      child: child,
+                    ),
                   ),
                 ),
                 // Bottom-up scrim, tall and dark enough that the name reads
@@ -338,6 +381,15 @@ class _CategoryImage extends StatelessWidget {
       return CachedNetworkImage(
         imageUrl: value,
         fit: BoxFit.cover,
+        // A menu photo is uploaded at full camera resolution; decoding that
+        // at its native size for every tile is what made images land a beat
+        // after the card during a fast flick. Screen width is the widest a
+        // tile ever gets (list view) and is a safe cap for both layouts.
+        memCacheWidth:
+            (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context))
+                .round(),
+        fadeInDuration: const Duration(milliseconds: 150),
         errorWidget: (context, url, error) => fallback,
       );
     }

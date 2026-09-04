@@ -11,10 +11,31 @@ import '../../../core/widgets/shimmer.dart';
 /// The banner slot here is just a bone the same size as [BannerCarousel] —
 /// it doesn't touch that widget or its file at all.
 class HomeLoadingSkeleton extends StatelessWidget {
-  const HomeLoadingSkeleton({super.key});
+  const HomeLoadingSkeleton({super.key}) : shelvesOnly = false;
+
+  /// Just the dish shelves. Categories arrive well before the much larger
+  /// product list, so the real banner, heading and chips can already be on
+  /// screen while only the part still in flight keeps shimmering.
+  const HomeLoadingSkeleton.shelves({super.key}) : shelvesOnly = true;
+
+  final bool shelvesOnly;
 
   @override
   Widget build(BuildContext context) {
+    if (shelvesOnly) {
+      return const Shimmer(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(10, 8, 10, 16),
+          child: Column(
+            children: [
+              _ShelfSkeleton(),
+              SizedBox(height: 30),
+              _ShelfSkeleton(),
+            ],
+          ),
+        ),
+      );
+    }
     return Shimmer(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(10, 16, 10, 16),

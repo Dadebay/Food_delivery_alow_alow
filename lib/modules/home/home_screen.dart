@@ -39,6 +39,16 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _search = TextEditingController();
   Timer? _searchDebounce;
 
+  /// When the shelf list first had real content to show. `SliverList.builder`
+  /// builds a shelf the moment it scrolls into range, so animating every
+  /// shelf unconditionally meant a fast flick kept restarting a ~1.2s
+  /// fade/slide/scale on each dish card as new shelves scrolled in — several
+  /// times a second, that's what was making the feed stutter. The entrance
+  /// is a first-paint flourish; anything built after this window is a
+  /// scroll, not an arrival, and renders instantly.
+  DateTime? _shownAt;
+  static const _entranceWindow = Duration(milliseconds: 500);
+
   @override
   void initState() {
     super.initState();
@@ -74,14 +84,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _pickAddress() async {
     if (!context.read<AuthProvider>().isSignedIn) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
       return;
     }
-    final address = await Navigator.of(context).push<DeliveryAddress>(
-      MaterialPageRoute(builder: (_) => const AddressPickerScreen()),
-    );
+    final address = await Navigator.of(context).push<DeliveryAddress>(MaterialPageRoute(builder: (_) => const AddressPickerScreen()));
     if (address != null && mounted) {
       // Anything picked on the map is a real address the customer wants
       // to use again, not a one-off — save it rather than only holding it
@@ -97,6 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final address = context.watch<AddressProvider>().address;
     final banners = context.watch<BannerProvider>().banners;
     final connectivity = context.watch<ConnectivityService>();
+    if (!catalog.loading) _shownAt ??= DateTime.now();
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -113,81 +120,86 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: !connectivity.online && catalog.dishes.isEmpty
                 ? _OfflineState(message: s.offlineNoConnection)
-                : catalog.loading
+                // Only a cold start gets the full-page skeleton; once the
+                // categories are in, the page itself renders and just the
+                // shelves keep shimmering.
+                : catalog.loading && catalog.categories.isEmpty
                 ? const HomeLoadingSkeleton()
                 : RefreshIndicator(
                     color: AppColors.green,
                     onRefresh: catalog.load,
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                      ).copyWith(top: 8),
-                      children: [
+                    // Slivers rather than `ListView(children: [...])`: that
+                    // form builds every child up front, and with a shelf per
+                    // category each one carrying a shrink-wrapped grid, the
+                    // first frame had to lay out the entire menu — hundreds
+                    // of cards — before the page could show anything. As a
+                    // sliver list the shelves are built as they scroll in.
+                    child: CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
                         // Searching narrows the whole page to just its
                         // results — the banner and section browsing are for
                         // discovery, and a search already says what the
                         // customer wants.
                         if (catalog.query.isEmpty) ...[
-                          if (banners.isNotEmpty)
-                            BannerCarousel(banners: banners),
-                          const SizedBox(height: 6),
-                          Column(
-                            children: [
-                              _MenuHeading(
-                                title: s.sections,
-                                allLabel: s.all,
-                                selectedCategory: _category,
-                                onShowAll: () =>
-                                    setState(() => _category = null),
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Column(
+                                children: [
+                                  if (banners.isNotEmpty) BannerCarousel(banners: banners),
+                                  const SizedBox(height: 6),
+                                  _MenuHeading(title: s.sections, allLabel: s.all, selectedCategory: _category, onShowAll: () => setState(() => _category = null)),
+                                  _CategoryChips(
+                                    categories: catalog.categories,
+                                    selected: _category,
+                                    popularLabel: s.categoryPopular,
+                                    onSelect: (id) {
+                                      setState(() => _category = id);
+                                      AnalyticsService.instance.categorySelected(id);
+                                    },
+                                  ),
+                                  const SizedBox(height: 6),
+                                ],
                               ),
-                              _CategoryChips(
-                                categories: catalog.categories,
-                                selected: _category,
-                                popularLabel: s.categoryPopular,
-                                onSelect: (id) {
-                                  setState(() => _category = id);
-                                  AnalyticsService.instance.categorySelected(
-                                    id,
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 6),
-                              if (_category == null)
-                                for (final category
-                                    in catalog.homeCategories) ...[
-                                  _HomeCategoryShelf(
-                                    category: category,
-                                    dishes: catalog.homeDishesForCategory(
-                                      category.id,
-                                    ),
-                                    strings: s,
-                                    onToggleFavorite: catalog.toggleFavorite,
-                                  ),
-                                  const SizedBox(height: 30),
-                                ]
-                              else
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                  ),
-
-                                  child: DishGrid(
-                                    dishes: catalog.forCategory(_category),
-                                    strings: s,
-                                    onToggleFavorite: catalog.toggleFavorite,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ] else
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: DishGrid(
-                              dishes: catalog.forCategory(_category),
-                              strings: s,
-                              onToggleFavorite: catalog.toggleFavorite,
                             ),
                           ),
+                          if (catalog.loading)
+                            const SliverToBoxAdapter(child: HomeLoadingSkeleton.shelves())
+                          else if (_category == null)
+                            SliverList.builder(
+                              itemCount: catalog.homeCategories.length,
+                              itemBuilder: (context, index) {
+                                final category = catalog.homeCategories[index];
+                                final shownAt = _shownAt;
+                                final isFirstPaint = shownAt != null && DateTime.now().difference(shownAt) < _entranceWindow;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 30),
+                                  child: _HomeCategoryShelf(
+                                    category: category,
+                                    dishes: catalog.homeDishesForCategory(category.id),
+                                    strings: s,
+                                    onToggleFavorite: catalog.toggleFavorite,
+                                    animate: isFirstPaint,
+                                  ),
+                                );
+                              },
+                            )
+                          else
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                child: DishGrid(dishes: catalog.forCategory(_category), strings: s, onToggleFavorite: catalog.toggleFavorite),
+                              ),
+                            ),
+                        ] else
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: DishGrid(dishes: catalog.forCategory(_category), strings: s, onToggleFavorite: catalog.toggleFavorite),
+                            ),
+                          ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
                       ],
                     ),
                   ),
@@ -199,12 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _MenuHeading extends StatelessWidget {
-  const _MenuHeading({
-    required this.title,
-    required this.allLabel,
-    required this.selectedCategory,
-    required this.onShowAll,
-  });
+  const _MenuHeading({required this.title, required this.allLabel, required this.selectedCategory, required this.onShowAll});
 
   final String title;
   final String allLabel;
@@ -225,11 +232,7 @@ class _MenuHeading extends StatelessWidget {
         if (selectedCategory != null)
           TextButton(
             onPressed: onShowAll,
-            style: TextButton.styleFrom(
-              minimumSize: Size.zero,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
+            style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 4), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
             child: Text(allLabel),
           ),
       ],
@@ -238,17 +241,20 @@ class _MenuHeading extends StatelessWidget {
 }
 
 class _HomeCategoryShelf extends StatelessWidget {
-  const _HomeCategoryShelf({
-    required this.category,
-    required this.dishes,
-    required this.strings,
-    required this.onToggleFavorite,
-  });
+  const _HomeCategoryShelf({required this.category, required this.dishes, required this.strings, required this.onToggleFavorite, required this.animate});
 
   final DishCategory category;
   final List<Dish> dishes;
   final AppStrings strings;
   final void Function(Dish) onToggleFavorite;
+
+  /// See [DishGrid.animate] — off for every shelf built after the feed's
+  /// first paint, which is what a scroll builds.
+  final bool animate;
+
+  /// Three rows of two — enough for the shelf to read as a section worth
+  /// opening without laying out a category's whole menu on the home tab.
+  static const _previewCount = 6;
 
   @override
   Widget build(BuildContext context) {
@@ -262,10 +268,7 @@ class _HomeCategoryShelf extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => CategoryDishesScreen(
-                  categoryId: category.id,
-                  categoryName: category.name,
-                ),
+                builder: (_) => CategoryDishesScreen(categoryId: category.id, categoryName: category.name),
               ),
             ),
             child: Padding(
@@ -275,48 +278,31 @@ class _HomeCategoryShelf extends StatelessWidget {
                   SizedBox(
                     width: 46,
                     height: 46,
-                    child: DishThumbnail(
-                      dish: dishes.first,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                    child: DishThumbnail(dish: dishes.first, borderRadius: BorderRadius.circular(14)),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          category.name,
-                          style: AppText.h2.copyWith(fontSize: 19),
-                        ),
+                        Text(category.name, style: AppText.h2.copyWith(fontSize: 19)),
                         const SizedBox(height: 3),
-                        Text(
-                          strings.dishesCount(dishes.length),
-                          style: AppText.bodyMuted.copyWith(fontSize: 12),
-                        ),
+                        Text(strings.dishesCount(dishes.length), style: AppText.bodyMuted.copyWith(fontSize: 12)),
                       ],
                     ),
                   ),
-                  Text(
-                    strings.all,
-                    style: AppText.chip.copyWith(color: AppColors.orange),
-                  ),
+                  Text(strings.all, style: AppText.chip.copyWith(color: AppColors.orange)),
                   const SizedBox(width: 4),
-                  const HugeIcon(
-                    icon: HugeIcons.strokeRoundedArrowRight01,
-                    color: AppColors.orange,
-                    size: 18,
-                  ),
+                  const HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, color: AppColors.orange, size: 18),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 10),
-          DishGrid(
-            dishes: dishes,
-            strings: strings,
-            onToggleFavorite: onToggleFavorite,
-          ),
+          // A preview, not the category. Tapping the header row above opens
+          // the full list, and the count next to the name already says how
+          // much more there is.
+          DishGrid(dishes: dishes, strings: strings, onToggleFavorite: onToggleFavorite, maxItems: _previewCount, animate: animate),
         ],
       ),
     );
@@ -337,12 +323,7 @@ class _OfflineState extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(20),
-            child: Image.asset(
-              'assets/images/no_connection.png',
-              width: 200,
-              height: 200,
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset('assets/images/no_connection.png', width: 200, height: 200, fit: BoxFit.cover),
           ),
           const SizedBox(height: 16),
           Text(message, textAlign: TextAlign.center, style: AppText.h2),
@@ -353,14 +334,7 @@ class _OfflineState extends StatelessWidget {
 }
 
 class _Header extends StatefulWidget {
-  const _Header({
-    required this.addressLine,
-    required this.onTapAddress,
-    required this.searchController,
-    required this.searchHint,
-    required this.deliveryAddressLabel,
-    required this.onSearchChanged,
-  });
+  const _Header({required this.addressLine, required this.onTapAddress, required this.searchController, required this.searchHint, required this.deliveryAddressLabel, required this.onSearchChanged});
 
   final String? addressLine;
   final VoidCallback onTapAddress;
@@ -390,9 +364,7 @@ class _HeaderState extends State<_Header> {
   void _toggleSearch() {
     setState(() => _searchOpen = !_searchOpen);
     if (_searchOpen) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _searchFocus.requestFocus(),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) => _searchFocus.requestFocus());
     } else {
       _searchFocus.unfocus();
       widget.searchController.clear();
@@ -405,12 +377,7 @@ class _HeaderState extends State<_Header> {
     return Container(
       width: double.infinity,
       color: AppColors.green,
-      padding: EdgeInsets.fromLTRB(
-        20,
-        MediaQuery.paddingOf(context).top + 12,
-        20,
-        20,
-      ),
+      padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 12, 20, 20),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -426,9 +393,7 @@ class _HeaderState extends State<_Header> {
                 firstCurve: Curves.easeOut,
                 secondCurve: Curves.easeIn,
                 sizeCurve: Curves.easeOut,
-                crossFadeState: _searchOpen
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
+                crossFadeState: _searchOpen ? CrossFadeState.showSecond : CrossFadeState.showFirst,
                 firstChild: SizedBox(
                   height: _fieldHeight,
                   child: Align(
@@ -439,20 +404,9 @@ class _HeaderState extends State<_Header> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            widget.deliveryAddressLabel,
-                            style: AppText.label.copyWith(
-                              color: AppColors.greenMuted,
-                              fontSize: 12,
-                            ),
-                          ),
+                          Text(widget.deliveryAddressLabel, style: AppText.label.copyWith(color: AppColors.greenMuted, fontSize: 12)),
                           const SizedBox(height: 6),
-                          Text(
-                            widget.addressLine ?? '—',
-                            style: AppText.h1.copyWith(fontSize: 16),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          Text(widget.addressLine ?? '—', style: AppText.h1.copyWith(fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
                         ],
                       ),
                     ),
@@ -469,11 +423,7 @@ class _HeaderState extends State<_Header> {
                       hintText: widget.searchHint,
                       prefixIcon: const Padding(
                         padding: EdgeInsets.all(14),
-                        child: HugeIcon(
-                          icon: AppIcons.search,
-                          color: AppColors.textMuted,
-                          size: 20,
-                        ),
+                        child: HugeIcon(icon: AppIcons.search, color: AppColors.textMuted, size: 20),
                       ),
                     ),
                   ),
@@ -490,11 +440,7 @@ class _HeaderState extends State<_Header> {
               onTap: _toggleSearch,
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: HugeIcon(
-                  icon: _searchOpen ? AppIcons.cancel : AppIcons.search,
-                  color: AppColors.white,
-                  size: 20,
-                ),
+                child: HugeIcon(icon: _searchOpen ? AppIcons.cancel : AppIcons.search, color: AppColors.white, size: 20),
               ),
             ),
           ),
@@ -505,12 +451,7 @@ class _HeaderState extends State<_Header> {
 }
 
 class _CategoryChips extends StatelessWidget {
-  const _CategoryChips({
-    required this.categories,
-    required this.selected,
-    required this.popularLabel,
-    required this.onSelect,
-  });
+  const _CategoryChips({required this.categories, required this.selected, required this.popularLabel, required this.onSelect});
 
   final List<DishCategory> categories;
   final String? selected;
@@ -526,14 +467,7 @@ class _CategoryChips extends StatelessWidget {
         padding: const EdgeInsets.only(top: 6, bottom: 10),
         scrollDirection: Axis.horizontal,
         children: [
-          for (final category in categories) ...[
-            const SizedBox(width: 8),
-            _Chip(
-              label: category.name,
-              active: selected == category.id,
-              onTap: () => onSelect(category.id),
-            ),
-          ],
+          for (final category in categories) ...[const SizedBox(width: 8), _Chip(label: category.name, active: selected == category.id, onTap: () => onSelect(category.id))],
         ],
       ),
     );
@@ -555,15 +489,7 @@ class _Chip extends StatelessWidget {
       decoration: BoxDecoration(
         color: active ? AppColors.green : AppColors.cream,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: active
-            ? [
-                BoxShadow(
-                  color: AppColors.green.withValues(alpha: 0.28),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : null,
+        boxShadow: active ? [BoxShadow(color: AppColors.green.withValues(alpha: 0.28), blurRadius: 10, offset: const Offset(0, 4))] : null,
       ),
       child: Material(
         type: MaterialType.transparency,
@@ -576,10 +502,7 @@ class _Chip extends StatelessWidget {
               padding: const EdgeInsets.only(left: 16, right: 16),
               child: Text(
                 label,
-                style: AppText.chip.copyWith(
-                  color: active ? AppColors.white : AppColors.textPrimary,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                ),
+                style: AppText.chip.copyWith(color: active ? AppColors.white : AppColors.textPrimary, fontWeight: active ? FontWeight.w700 : FontWeight.w500),
               ),
             ),
           ),

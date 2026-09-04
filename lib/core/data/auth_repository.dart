@@ -302,6 +302,13 @@ class AuthRepository {
     }
   }
 
+  /// Matches every account-specific GET the app caches for offline viewing
+  /// (order history, favorites, saved addresses, profile) — not the public
+  /// menu, which stays cached across accounts on a shared device.
+  static final _personalCachePaths = RegExp(
+    r'/(orders|favorites|users/me)',
+  );
+
   Future<void> _clearSession() async {
     _debugSession('CLEARING');
     await _prefs.remove(_tokenKey);
@@ -310,6 +317,7 @@ class AuthRepository {
     await _prefs.remove(_displayNameKey);
     await _prefs.remove(_avatarPathKey);
     _api.token = null;
+    await _api.clearCache(_personalCachePaths);
   }
 
   Future<void> _persist({

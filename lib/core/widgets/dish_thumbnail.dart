@@ -14,15 +14,25 @@ import '../theme/app_icons.dart';
 /// own: a flat grey rectangle under a dark scrim reads as broken, a tinted
 /// tile with a food glyph reads as "photo coming".
 class DishThumbnail extends StatelessWidget {
-  const DishThumbnail({super.key, required this.dish, this.borderRadius});
+  const DishThumbnail({
+    super.key,
+    required this.dish,
+    this.borderRadius,
+    this.imageUrlOverride,
+  });
 
   final Dish dish;
   final BorderRadius? borderRadius;
 
+  /// Shown instead of [dish.imageUrl] when set — e.g. the photo of whichever
+  /// variant is currently selected on the dish's own page. Falls back to
+  /// the dish's own photo when the variant has none of its own.
+  final String? imageUrlOverride;
+
   @override
   Widget build(BuildContext context) {
     final radius = borderRadius ?? BorderRadius.circular(16);
-    final url = dish.imageUrl;
+    final url = imageUrlOverride ?? dish.imageUrl;
     final fallback = _Fallback(seed: dish.id);
 
     Widget image;
@@ -32,6 +42,16 @@ class DishThumbnail extends StatelessWidget {
       image = CachedNetworkImage(
         imageUrl: url,
         fit: BoxFit.cover,
+        // Menu photos are uploaded at camera resolution. Decoding one at its
+        // native size costs both time and a large chunk of the image cache,
+        // and a dish tile is never wider than half the screen — so cap the
+        // decode there and keep a scrolling grid cheap.
+        memCacheWidth:
+            (MediaQuery.sizeOf(context).width *
+                    MediaQuery.devicePixelRatioOf(context) /
+                    2)
+                .round(),
+        fadeInDuration: const Duration(milliseconds: 150),
         errorWidget: (context, url, error) => fallback,
       );
     } else {
