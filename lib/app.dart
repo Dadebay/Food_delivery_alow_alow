@@ -6,10 +6,12 @@ import 'package:provider/provider.dart';
 import 'core/localization/locale_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/analytics_service.dart';
+import 'core/services/app_update_service.dart';
 import 'modules/onboarding/language_select_screen.dart';
 import 'modules/onboarding/onboarding_provider.dart';
 import 'modules/onboarding/onboarding_screen.dart';
 import 'modules/shell/main_nav_screen.dart';
+import 'modules/update/force_update_screen.dart';
 
 class FoodDeliveryApp extends StatelessWidget {
   const FoodDeliveryApp({super.key});
@@ -59,6 +61,14 @@ class _Root extends StatelessWidget {
   Widget build(BuildContext context) {
     final locale = context.watch<LocaleProvider>();
     if (!locale.hasChosen) return const LanguageSelectScreen();
+
+    // Ahead of onboarding as well as the menu: a build the backend refuses to
+    // serve cannot complete a first run either, and walking a new customer
+    // through the slides only to strand them is worse than saying so now.
+    // The check fails open, so this only ever triggers on a definite answer.
+    if (context.watch<AppUpdateService>().status == UpdateStatus.required) {
+      return const ForceUpdateScreen();
+    }
 
     final onboarding = context.watch<OnboardingProvider>();
     return onboarding.seen ? const MainNavScreen() : const OnboardingScreen();

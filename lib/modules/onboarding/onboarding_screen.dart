@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/responsive.dart';
 import 'onboarding_provider.dart';
 import 'widgets/onboarding_image_page.dart';
 
@@ -63,8 +64,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ],
               ),
             ),
+            // Same reasoning as the language screen: the dots and the button
+            // are a small block, and stretching the button across a tablet
+            // makes it read as a banner rather than something to press.
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              padding: Responsive.pageInsets(
+                context,
+                const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                maxContentWidth: 520,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

@@ -5,6 +5,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/data/order_repository.dart' show OrderPlacementException;
+import '../../core/constants/app_config.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/models/delivery_address.dart';
@@ -15,6 +16,8 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/responsive.dart';
+import '../../core/widgets/app_snack_bar.dart';
 import '../../core/widgets/dish_thumbnail.dart';
 import '../auth/auth_provider.dart';
 import '../auth/login_screen.dart';
@@ -39,6 +42,10 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final TextEditingController _promoCode = TextEditingController();
+
+  /// Free-text note for the whole order — sent as `customerNote`, shown in
+  /// the admin and printed on the main and kitchen receipts.
+  final TextEditingController _orderComment = TextEditingController();
   bool _placing = false;
 
   // Guards against re-quoting `POST /delivery/quote` on every rebuild —
@@ -91,6 +98,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void dispose() {
     _promoCode.dispose();
+    _orderComment.dispose();
     super.dispose();
   }
 
@@ -98,9 +106,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   /// subtotal changed — this is only how `AddressProvider.deliveryEtrapId`
   /// gets resolved from raw coordinates; `_loadQuote` below is what
   /// actually prices the order.
-  void _maybeRefreshAddressQuote(DeliveryAddress? address, double subtotal) {
+  void _maybeRefreshAddressQuote(
+    DeliveryAddress? address,
+    double subtotal, {
+    required bool hasQuote,
+  }) {
     if (address == null) return;
-    if (identical(_quotedAddress, address) &&
+    // [hasQuote] is what makes this safe against object identity. Every path
+    // that changes the address clears the provider's quote, but not every
+    // one hands back a fresh object: picking a point on the map within a few
+    // metres of an address already on file reactivates that saved entry, so
+    // `address` can be the very same instance that was quoted before while
+    // the quote itself is gone. Keying on identity alone, checkout then sat
+    // on the flat estimate and never asked the API again.
+    //
+    // No loop: a finished refresh always leaves a quote behind — the
+    // server's, or the fallback — so this only fires while there is none.
+    if (hasQuote &&
+        identical(_quotedAddress, address) &&
         _quotedAddressSubtotal == subtotal) {
       return;
     }
@@ -147,8 +170,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         items: cart.items.toList(),
         subtotal: cart.subtotal,
         deliveryEtrapId: addresses.deliveryEtrapId,
-        promoCode:
-            promoCode ?? (_promoApplied ? _promoCode.text.trim() : null),
+        promoCode: promoCode ?? (_promoApplied ? _promoCode.text.trim() : null),
       );
       if (!mounted) return;
       setState(() {
@@ -159,14 +181,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // shows the discount once applied, but a snackbar is what makes the
       // saving register in the moment, right as it lands.
       if (applyingPromo && quote.discount > 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.sr.promoDiscountApplied(Fmt.money(quote.discount)))),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.sr.promoDiscountApplied(Fmt.money(quote.discount)))));
       }
     } catch (error) {
       if (!mounted) return;
       if (applyingPromo) {
         setState(() => _promoError = _orderErrorMessage(error, context.sr));
+      } else if (_quote == null) {
+        // A background refresh that fails used to leave `_quote` null, and
+        // nothing ever asked again: the total spun a spinner forever and the
+        // order button stayed dead. Price it here instead — the same
+        // estimate the address card is already showing, and the server
+        // prices the order properly at creation anyway.
+        setState(
+          () => _quote = OrderQuote.estimate(
+            subtotal: cart.subtotal,
+            deliveryFee: addresses.deliveryFee,
+          ),
+        );
+        // Let the next build try the server again rather than trusting the
+        // estimate for the rest of the session.
+        _quotedSubtotal = null;
+        _quotedEtrapId = null;
       }
     } finally {
       if (applyingPromo && mounted) setState(() => _promoLoading = false);
@@ -194,17 +230,45 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Anything picked on the map is a real address the customer wants
       // to use again, not a one-off — save it rather than only holding it
       // in memory for this order.
-      await context.read<AddressProvider>().addNew(address);
+      try {
+        await context.read<AddressProvider>().addNew(address);
+      } catch (_) {
+        // The address is already active for this order; only the address
+        // book missed out. Saying so beats the old behaviour, where the
+        // failure vanished and the screen just kept showing "pick on map".
+        if (!mounted) return;
+        AppSnackBar.show(
+          context,
+          message: context.sr.addressNotSaved,
+          kind: AppSnackKind.error,
+          icon: AppIcons.location,
+        );
+      }
     }
   }
 
   void _handlePlaceOrder(DeliveryAddress? address) {
+    // `AppButton`'s disabled-while-busy state only takes effect on the next
+    // frame — a fast double-tap can fire this twice before that rebuild
+    // lands. This check runs synchronously in the tap handler itself, so
+    // the second tap bails out immediately instead of racing the first
+    // request's `cart.clear()` and sending an empty `items: []`.
+    if (_placing) return;
+    final cart = context.read<CartProvider>();
+    if (cart.isEmpty) return;
     if (!context.read<AuthProvider>().isSignedIn) {
       _SignInRequiredDialog.show(context);
       return;
     }
     if (address == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.sr.selectAddressFirst)));
+      final s = context.sr;
+      AppSnackBar.show(
+        context,
+        message: s.selectAddressFirst,
+        icon: AppIcons.location,
+        actionLabel: s.pickOnMap,
+        onAction: () => _pickAddress(null),
+      );
       return;
     }
     _placeOrder(address);
@@ -225,9 +289,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         discount: _quote?.discount ?? 0,
         promoCode: _promoCode.text.trim().isEmpty ? null : _promoCode.text.trim(),
         deliveryEtrapId: addresses.deliveryEtrapId,
+        orderComment: _orderComment.text.trim().isEmpty ? null : _orderComment.text.trim(),
       );
       await AnalyticsService.instance.orderPlaced(order);
       cart.clear();
+      _orderComment.clear();
       if (!mounted) return;
 
       await showDialog<void>(context: context, barrierColor: Colors.black.withValues(alpha: 0.55), builder: (_) => const _OrderAcceptedDialog());
@@ -235,7 +301,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       context.read<TabSwitcher>().go(3);
       await Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => OrderTrackScreen(orderId: order.id)), (route) => route.isFirst);
-    } catch (error) {
+    } catch (error, stackTrace) {
+      // The `order_repository`'s own debug box already prints the raw
+      // HTTP/server response for a non-2xx create-order call — this is the
+      // one line that shows what checkout actually caught, in case the
+      // failure happened above that (a thrown `StateError`, a cast, etc.).
+      debugPrint('[PlaceOrder] failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_orderErrorMessage(error, s))));
       }
@@ -257,15 +329,62 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     };
   }
 
+  /// Debug only — the last fee logged, so a rebuild that changes nothing
+  /// does not repeat the line on every frame.
+  String? _loggedFee;
+
+  /// Debug only. Says which of the three sources the number on screen came
+  /// from, which is the whole question when a fee looks wrong: the order
+  /// quote's district price, the delivery endpoint's out-of-area rate, or
+  /// this app's flat estimate.
+  void _logDeliveryFee(double fee, int? etrapId, bool quoted) {
+    final line =
+        'showing $fee ${AppConfig.currency} '
+        '(${quoted ? "order quote, etrapId=$etrapId" : "estimate — no district resolved"})';
+    if (line == _loggedFee) return;
+    _loggedFee = line;
+    debugPrint('\x1B[30;106m DELIVERY \x1B[0m \x1B[96m$line\x1B[0m');
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = context.s;
     final cart = context.watch<CartProvider>();
     final addressProvider = context.watch<AddressProvider>();
     final address = addressProvider.address;
-    _maybeRefreshAddressQuote(address, cart.subtotal);
+    _maybeRefreshAddressQuote(
+      address,
+      cart.subtotal,
+      hasQuote: addressProvider.quote != null,
+    );
     _maybeRefreshOrderQuote(cart.subtotal, addressProvider.deliveryEtrapId);
     final quote = _quote;
+
+    // `/orders/quote` prices delivery from the `deliveryEtrapId` this screen
+    // hands it, and answers 0 when it gets none — which happens both before
+    // an address is picked and when the picked point fell outside every
+    // configured etrap. That zero means "no district to charge for", not
+    // free delivery, and taking it at face value had checkout promising a
+    // free run nobody had quoted, with a total short by the fee.
+    //
+    // So the order quote's fee is only used once a district actually
+    // resolved. Otherwise the fee comes from `/delivery/quote`, which
+    // answers for a raw point: the backend's own out-of-area rate when it
+    // replied, and this app's flat estimate when it did not.
+    final etrapId = addressProvider.deliveryEtrapId;
+    final deliveryFee = etrapId != null
+        ? (quote?.deliveryFee ?? AppConfig.fallbackDeliveryFee)
+        : (addressProvider.deliveryFee ?? AppConfig.fallbackDeliveryFee);
+    // Anything but a district-specific price is shown as approximate: the
+    // server prices the order again at creation time, and an out-of-area
+    // rate can land differently.
+    final deliveryIsQuoted = etrapId != null && quote != null;
+    _logDeliveryFee(deliveryFee, etrapId, deliveryIsQuoted);
+    // Rebuilt around the fee actually on screen, so the discount the server
+    // worked out is still honoured while the delivery line is our estimate.
+    final total = quote == null
+        ? cart.subtotal + deliveryFee
+        : quote.total - quote.deliveryFee + deliveryFee;
 
     return Scaffold(
       backgroundColor: AppColors.neutralGrey,
@@ -279,12 +398,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      // Three ways out of the keyboard, because a multiline field offers none
+      // of its own on iOS: the accessory bar below, dragging the list, and a
+      // tap on any empty part of the page.
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: Responsive.pageInsets(
+          context,
+          const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        ),
         children: [
           _AddressCard(address: address, strings: s, onTap: () => _pickAddress(address)),
           const SizedBox(height: 12),
           _ItemsCard(cart: cart, strings: s),
+          const SizedBox(height: 12),
+          _OrderCommentField(controller: _orderComment, strings: s),
           const SizedBox(height: 12),
           _PromoField(
             controller: _promoCode,
@@ -299,16 +430,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const SizedBox(height: 12),
           _PaymentCard(strings: s),
           const SizedBox(height: 12),
-          _TotalsCard(cart: cart, quote: quote, strings: s),
+          _TotalsCard(
+            cart: cart,
+            quote: quote,
+            strings: s,
+            deliveryFee: deliveryFee,
+            deliveryIsQuoted: deliveryIsQuoted,
+            total: total,
+          ),
         ],
+        ),
       ),
-      bottomNavigationBar: _BottomBar(
-        cart: cart,
-        quote: quote,
-        strings: s,
-        busy: _placing,
-        onPlaceOrder: (cart.isEmpty || quote == null) ? null : () => _handlePlaceOrder(address),
-      ),
+      bottomNavigationBar: _BottomBar(cart: cart, quote: quote, total: total, strings: s, busy: _placing, onPlaceOrder: (cart.isEmpty || (address != null && quote == null))
+          ? null
+          // With no address there is no quote to wait for, and a dead
+          // button explains nothing. Let the tap through so the handler
+          // can say what is missing and offer the map.
+          : () => _handlePlaceOrder(address)),
     );
   }
 }
@@ -490,6 +628,153 @@ class _ItemsCard extends StatelessWidget {
   }
 }
 
+/// Free-text note for the whole order — sent as `customerNote`, shown in
+/// the admin and printed on the main and kitchen receipts (see
+/// `OrderRepository.place`). Always visible rather than collapsed like the
+/// promo field: unlike a code, there's nothing to "apply" here, so a plain
+/// multi-line box is the whole interaction. The outline brightens to green
+/// on focus — the same feedback the cancel-order reason field uses — so a
+/// tap reads as "writing" rather than just a static text box.
+class _OrderCommentField extends StatefulWidget {
+  const _OrderCommentField({required this.controller, required this.strings});
+
+  final TextEditingController controller;
+  final AppStrings strings;
+
+  @override
+  State<_OrderCommentField> createState() => _OrderCommentFieldState();
+}
+
+class _OrderCommentFieldState extends State<_OrderCommentField> {
+  late final FocusNode _focusNode = FocusNode()..addListener(_onFocusChange);
+  bool _focused = false;
+  OverlayEntry? _doneBar;
+
+  void _onFocusChange() {
+    setState(() => _focused = _focusNode.hasFocus);
+    if (_focusNode.hasFocus) {
+      _showDoneBar();
+    } else {
+      _removeDoneBar();
+    }
+  }
+
+  /// A multiline field gets a newline key instead of "done", so iOS offers no
+  /// way out of the keyboard at all. This is the accessory bar native apps put
+  /// there: pinned directly above the keyboard, impossible to miss.
+  void _showDoneBar() {
+    if (_doneBar != null) return;
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) return;
+    _doneBar = OverlayEntry(
+      builder: (overlayContext) => Positioned(
+        left: 0,
+        right: 0,
+        bottom: MediaQuery.of(overlayContext).viewInsets.bottom,
+        child: Material(
+          color: AppColors.neutralGrey,
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 44,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _focusNode.unfocus,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.green,
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                    ),
+                    child: Text(
+                      widget.strings.keyboardDoneAction,
+                      style: AppText.body.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.green,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(_doneBar!);
+  }
+
+  void _removeDoneBar() {
+    _doneBar?.remove();
+    _doneBar = null;
+  }
+
+  @override
+  void dispose() {
+    _removeDoneBar();
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  static OutlineInputBorder _border(Color color, {double width = 1.3}) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(14),
+    borderSide: BorderSide(color: color, width: width),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.strings;
+    return _Card(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _SectionIcon(icon: AppIcons.note, color: AppColors.green, size: 30),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(s.orderCommentLabel, style: AppText.body.copyWith(fontWeight: FontWeight.w600)),
+              ),
+              // Only shown while writing — a quiet nudge that this is
+              // optional, without permanently taking up header space.
+              AnimatedOpacity(
+                opacity: _focused ? 1 : 0,
+                duration: const Duration(milliseconds: 160),
+                child: Text(s.orderCommentOptional, style: AppText.bodyMuted.copyWith(fontSize: 11)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: widget.controller,
+            focusNode: _focusNode,
+            minLines: 2,
+            maxLines: 5,
+            maxLength: 500,
+            textCapitalization: TextCapitalization.sentences,
+            style: AppText.body,
+            cursorColor: AppColors.green,
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: _focused ? AppColors.white : AppColors.neutralGrey,
+              contentPadding: const EdgeInsets.all(14),
+              border: _border(AppColors.divider, width: 1.1),
+              enabledBorder: _border(AppColors.divider, width: 1.1),
+              focusedBorder: _border(AppColors.green),
+              hintText: s.orderCommentHint,
+              hintStyle: AppText.bodyMuted,
+              counterStyle: AppText.bodyMuted.copyWith(fontSize: 11),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Collapsed by default — most orders have no promo code, so the field
 /// starts as a single quiet prompt row rather than an always-open text
 /// field competing for attention. Tapping it reveals the input; a code that
@@ -622,11 +907,7 @@ class _PromoFieldState extends State<_PromoField> {
             if (widget.loading)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green),
-                ),
+                child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green)),
               )
             else
               ValueListenableBuilder<TextEditingValue>(
@@ -748,9 +1029,28 @@ class _PaymentOption extends StatelessWidget {
 }
 
 class _TotalsCard extends StatelessWidget {
-  const _TotalsCard({required this.cart, required this.quote, required this.strings});
+  const _TotalsCard({
+    required this.cart,
+    required this.quote,
+    required this.strings,
+    required this.deliveryFee,
+    required this.deliveryIsQuoted,
+    required this.total,
+  });
 
   final CartProvider cart;
+
+  /// The fee to show, already resolved by the screen: the backend's number
+  /// when it priced this address, otherwise the app's estimate. Keeping that
+  /// choice in one place is what stops this row and the bar at the bottom
+  /// disagreeing about what delivery costs.
+  final double deliveryFee;
+
+  /// False while [deliveryFee] is the estimate — the heading says so, so
+  /// nobody reads a guess as a settled price.
+  final bool deliveryIsQuoted;
+
+  final double total;
 
   /// The backend's own pricing for this cart — `null` until the first
   /// `/orders/quote` response arrives. The delivery fee, discount and total
@@ -766,29 +1066,26 @@ class _TotalsCard extends StatelessWidget {
           _Row(label: strings.dishesTotal, value: Fmt.money(quote?.subtotal ?? cart.subtotal)),
           const SizedBox(height: 10),
           _Row(
-            label: strings.deliveryFeeLabel,
-            value: quote != null ? Fmt.money(quote!.deliveryFee) : '…',
+            // Tahmin oldugunda basligin kendisi bunu soyluyor — kullanici
+            // kesin bir rakam sandigi seyle karsilasmasin.
+            label: deliveryIsQuoted
+                ? strings.deliveryFeeLabel
+                : strings.deliveryFeeEstimated,
+            value: Fmt.money(deliveryFee),
           ),
-          if (quote != null && quote!.discount > 0) ...[
-            const SizedBox(height: 10),
-            _Row(label: strings.discountLabel, value: '-${Fmt.money(quote!.discount)}', valueColor: AppColors.orange),
-          ],
+          if (quote != null && quote!.discount > 0) ...[const SizedBox(height: 10), _Row(label: strings.discountLabel, value: '-${Fmt.money(quote!.discount)}', valueColor: AppColors.orange)],
           const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(color: AppColors.green.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(14)),
-            child: quote != null
-                ? _Row(label: strings.grandTotal, value: Fmt.money(quote!.total), bold: true)
-                : Row(
-                    children: [
-                      Expanded(child: Text(strings.grandTotal, style: AppText.h2.copyWith(fontSize: 18))),
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green),
-                      ),
-                    ],
-                  ),
+            // Toplam da bekletilmiyor: sunucu cevabi yokken sepet toplami ile
+            // yedek teslimat ucretinden hesaplaniyor. Onceden burada sonsuza
+            // kadar donen bir gosterge vardi.
+            child: _Row(
+              label: strings.grandTotal,
+              value: Fmt.money(total),
+              bold: true,
+            ),
           ),
         ],
       ),
@@ -820,10 +1117,13 @@ class _Row extends StatelessWidget {
 /// whole time the customer scrolls the sections above, so the price never
 /// feels like a surprise revealed only at the very bottom.
 class _BottomBar extends StatelessWidget {
-  const _BottomBar({required this.cart, required this.quote, required this.strings, required this.busy, required this.onPlaceOrder});
+  const _BottomBar({required this.cart, required this.quote, required this.total, required this.strings, required this.busy, required this.onPlaceOrder});
 
   final CartProvider cart;
   final OrderQuote? quote;
+
+  /// The same number the totals card shows — see [_TotalsCard.deliveryFee].
+  final double total;
   final AppStrings strings;
   final bool busy;
   final VoidCallback? onPlaceOrder;
@@ -848,13 +1148,9 @@ class _BottomBar extends StatelessWidget {
                   Text(strings.dishesCount(cart.itemCount), style: AppText.bodyMuted),
                   const Spacer(),
                   if (quote != null)
-                    Text(Fmt.money(quote!.total), style: AppText.h2.copyWith(fontSize: 19))
+                    Text(Fmt.money(total), style: AppText.h2.copyWith(fontSize: 19))
                   else
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green),
-                    ),
+                    const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green)),
                 ],
               ),
               const SizedBox(height: 12),

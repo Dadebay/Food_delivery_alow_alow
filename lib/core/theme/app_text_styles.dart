@@ -9,6 +9,11 @@ class AppText {
 
   static const String family = 'Gilroy';
 
+  /// Display face reserved for the brand wordmark on loading placeholders.
+  /// Deliberately outside the scale below, so nothing inherits it by
+  /// accident.
+  static const String wordmarkFamily = 'Qurova';
+
   /// Screen titles, dish name on its detail sheet.
   static const TextStyle h1 = TextStyle(
     fontFamily: family,

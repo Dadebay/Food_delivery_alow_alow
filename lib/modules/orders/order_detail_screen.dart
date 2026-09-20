@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
+
+import '../../core/constants/app_config.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,7 +16,9 @@ import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/responsive.dart';
 import '../../core/widgets/delivery_map.dart';
+import '../../core/widgets/details_toggle.dart';
 import '../../core/widgets/dish_thumbnail.dart';
 import '../../core/widgets/order_status_chip.dart';
 import 'order_provider.dart';
@@ -35,7 +40,35 @@ class OrderDetailScreen extends StatefulWidget {
 }
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
+  /// The dish list is the longest block on the screen and the least useful
+  /// while an order is still on its way — the courier's position is. Collapsed
+  /// by default; the totals below stay visible either way.
+  bool _showItems = false;
+
   bool _cancelling = false;
+
+  Timer? _trackingTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Kurye konumu ve yol rotasi ayri uclardan geliyor ve yalnizca bu cagri
+    // ile doluyor. Burasi onu hic cagirmadigi icin haritada cizilecek bir sey
+    // olmuyordu: rozet "Kurye yolda" derken harita bos kaliyordu.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => context.read<OrderProvider>().refreshTracking(widget.orderId),
+    );
+    _trackingTimer = Timer.periodic(
+      AppConfig.trackingPollInterval,
+      (_) => context.read<OrderProvider>().refreshTracking(widget.orderId),
+    );
+  }
+
+  @override
+  void dispose() {
+    _trackingTimer?.cancel();
+    super.dispose();
+  }
 
   Future<void> _call(String phone) async {
     final uri = Uri(scheme: 'tel', path: phone);
@@ -95,12 +128,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         centerTitle: true,
         automaticallyImplyLeading: false,
         leading: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, color: AppColors.white),
+          icon: HugeIcon(
+            icon: HugeIcons.strokeRoundedArrowLeft01,
+            color: AppColors.white,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+        padding: Responsive.pageInsets(
+          context,
+          const EdgeInsets.fromLTRB(16, 16, 16, 80),
+        ),
         children: [
           _Card(
             child: Row(
@@ -111,7 +150,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(s.orderNumber(order.number), style: AppText.h2.copyWith(fontSize: 17)),
+                      Text(
+                        s.orderNumber(order.number),
+                        style: AppText.h2.copyWith(fontSize: 17),
+                      ),
                       const SizedBox(height: 2),
                       Text(Fmt.date(order.placedAt), style: AppText.bodyMuted),
                     ],
@@ -122,13 +164,96 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          if (status == OrderStatus.delivered) ...[
+            _Card(
+              child: OrderRatingRow(order: order, strings: s),
+            ),
+            const SizedBox(height: 12),
+          ],
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(s.deliveryAddressTitle, style: AppText.label),
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const HugeIcon(
+                      icon: AppIcons.location,
+                      color: AppColors.green,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            order.address.fullLine(
+                              districtLabel: s.districtLabel,
+                              houseLabel: s.houseLabel,
+                            ),
+                            style: AppText.body.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Builder(
+                            builder: (context) {
+                              final detail = order.address.detailLine(
+                                entranceLabel: s.entranceLabel,
+                                floorLabel: s.floorLabel,
+                                apartmentLabel: s.apartmentLabel,
+                              );
+                              if (detail.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(detail, style: AppText.bodyMuted),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _MapPreview(
+                  destinationPoint: order.address.point,
+                  branchPoint: order.branchPoint,
+                  courierPoint: status.courierVisible
+                      ? order.courierPoint
+                      : null,
+                  // Same line the live-tracking screen draws: from where the
+                  // courier is now to the customer's door, not the stretch
+                  // already driven.
+                  routePoints: status.courierVisible
+                      ? remainingRoute(
+                          route: order.routePoints ?? const [],
+                          destination: order.address.point,
+                          courier: order.courierPoint,
+                        )
+                      : const [],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Adres ve harita once: "nerede" sorusunun cevabi bunlar. Adim
+          // listesi ve iptal dugmesi onlarin altinda kaliyor.
           if (status.isOpen) ...[
             _Card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   StatusTimeline(order: order, strings: s),
-                  if (status == OrderStatus.onTheWay && order.courierName != null) ...[const Divider(height: 28), CourierContactRow(order: order, strings: s, onCall: _call)],
+                  if (status == OrderStatus.onTheWay &&
+                      order.courierName != null) ...[
+                    const Divider(height: 28),
+                    CourierContactRow(order: order, strings: s, onCall: _call),
+                  ],
                 ],
               ),
             ),
@@ -146,112 +271,137 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ),
               ),
           ],
-          if (status == OrderStatus.delivered) ...[
-            _Card(
-              child: OrderRatingRow(order: order, strings: s),
-            ),
-            const SizedBox(height: 12),
-          ],
-          _Card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const _SectionIcon(icon: AppIcons.package, color: AppColors.orange),
-                    const SizedBox(width: 12),
-                    Text(s.orderItemsTitle, style: AppText.label),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(20)),
-                      child: Text(s.dishesCount(order.itemCount), style: AppText.chip.copyWith(color: AppColors.textSecondary)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                for (final item in order.items) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: DishThumbnail(dish: item.dish, borderRadius: BorderRadius.circular(12)),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.displayName,
-                                style: AppText.body.copyWith(fontWeight: FontWeight.w700),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Text('${item.quantity} × ${Fmt.money(item.unitPrice)}', style: AppText.bodyMuted),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(Fmt.money(item.lineTotal), style: AppText.body.copyWith(fontWeight: FontWeight.w700)),
-                      ],
-                    ),
-                  ),
-                  if (item != order.items.last) const Padding(padding: EdgeInsets.only(bottom: 12), child: Divider(height: 1)),
-                ],
-                const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Divider()),
-                _TotalsRow(label: s.dishesTotal, value: Fmt.money(order.subtotal)),
-                const SizedBox(height: 8),
-                _TotalsRow(label: s.deliveryFeeLabel, value: Fmt.money(order.deliveryFee)),
-                if (order.discount > 0) ...[const SizedBox(height: 8), _TotalsRow(label: s.discountLabel, value: '-${Fmt.money(order.discount)}', valueColor: AppColors.orange)],
-                const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider()),
-                _TotalsRow(label: s.grandTotal, value: Fmt.money(order.total), bold: true),
-              ],
-            ),
-          ),
           const SizedBox(height: 12),
           _Card(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(s.deliveryAddressTitle, style: AppText.label),
-                const SizedBox(height: 10),
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const HugeIcon(icon: AppIcons.location, color: AppColors.green, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            order.address.fullLine(districtLabel: s.districtLabel, houseLabel: s.houseLabel),
-                            style: AppText.body.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          Builder(
-                            builder: (context) {
-                              final detail = order.address.detailLine(entranceLabel: s.entranceLabel, floorLabel: s.floorLabel, apartmentLabel: s.apartmentLabel);
-                              if (detail.isEmpty) {
-                                return const SizedBox.shrink();
-                              }
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(detail, style: AppText.bodyMuted),
-                              );
-                            },
-                          ),
-                        ],
+                    const _SectionIcon(
+                      icon: AppIcons.package,
+                      color: AppColors.orange,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(s.orderItemsTitle, style: AppText.label),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.cream,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        s.dishesCount(order.itemCount),
+                        style: AppText.chip.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
-                _MapPreview(destinationPoint: order.address.point, branchPoint: order.branchPoint),
+                DetailsToggle(
+                  expanded: _showItems,
+                  label: _showItems ? s.orderDetailsHide : s.orderDetailsShow,
+                  onTap: () => setState(() => _showItems = !_showItems),
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  alignment: Alignment.topCenter,
+                  child: !_showItems
+                      ? const SizedBox(width: double.infinity)
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 6),
+                            for (final item in order.items) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 44,
+                                      height: 44,
+                                      child: DishThumbnail(
+                                        dish: item.dish,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.displayName,
+                                            style: AppText.body.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${item.quantity} × ${Fmt.money(item.unitPrice)}',
+                                            style: AppText.bodyMuted,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      Fmt.money(item.lineTotal),
+                                      style: AppText.body.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (item != order.items.last)
+                                const Padding(
+                                  padding: EdgeInsets.only(bottom: 12),
+                                  child: Divider(height: 1),
+                                ),
+                            ],
+                          ],
+                        ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Divider(),
+                ),
+                _TotalsRow(
+                  label: s.dishesTotal,
+                  value: Fmt.money(order.subtotal),
+                ),
+                const SizedBox(height: 8),
+                _TotalsRow(
+                  label: s.deliveryFeeLabel,
+                  value: Fmt.money(order.deliveryFee),
+                ),
+                if (order.discount > 0) ...[
+                  const SizedBox(height: 8),
+                  _TotalsRow(
+                    label: s.discountLabel,
+                    value: '-${Fmt.money(order.discount)}',
+                    valueColor: AppColors.orange,
+                  ),
+                ],
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Divider(),
+                ),
+                _TotalsRow(
+                  label: s.grandTotal,
+                  value: Fmt.money(order.total),
+                  bold: true,
+                ),
               ],
             ),
           ),
@@ -275,7 +425,10 @@ class _SectionIcon extends StatelessWidget {
     return Container(
       width: _size,
       height: _size,
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
       child: Center(
         child: HugeIcon(icon: icon, color: color, size: _size * 0.5),
       ),
@@ -296,7 +449,13 @@ class _Card extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 16, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: child,
     );
@@ -308,17 +467,29 @@ class _Card extends StatelessWidget {
 /// Deliberately just the map: this is "where did it go", not a second copy
 /// of the live-tracking screen's status and timeline.
 class _MapPreview extends StatelessWidget {
-  const _MapPreview({required this.destinationPoint, this.branchPoint});
+  const _MapPreview({
+    required this.destinationPoint,
+    this.branchPoint,
+    this.courierPoint,
+    this.routePoints = const [],
+  });
 
   final LatLng destinationPoint;
   final LatLng? branchPoint;
+  final LatLng? courierPoint;
+  final List<LatLng> routePoints;
 
   void _expand(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _MapSheet(destinationPoint: destinationPoint, branchPoint: branchPoint),
+      builder: (_) => _MapSheet(
+        destinationPoint: destinationPoint,
+        branchPoint: branchPoint,
+        courierPoint: courierPoint,
+        routePoints: routePoints,
+      ),
     );
   }
 
@@ -327,12 +498,22 @@ class _MapPreview extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: SizedBox(
-        height: 150,
+        // Kuryenin nerede oldugu bu ekranda en cok bakilan sey. Harita kurye
+        // ile kapiyi birlikte cerceveliyor (bkz. DeliveryMap.fitAll), yani
+        // ikisi arasi acildikca olcek kuculuyor — yukseklik buna yer acacak
+        // kadar olmali, yoksa yol cizgisi iki ucu da ezik gosteriyor.
+        height: 280,
         child: Stack(
           fit: StackFit.expand,
           children: [
             IgnorePointer(
-              child: DeliveryMap(destinationPoint: destinationPoint, branchPoint: branchPoint, interactive: false),
+              child: DeliveryMap(
+                destinationPoint: destinationPoint,
+                branchPoint: branchPoint,
+                courierPoint: courierPoint,
+                routePoints: routePoints,
+                interactive: false,
+              ),
             ),
             Material(
               color: Colors.transparent,
@@ -351,7 +532,11 @@ class _MapPreview extends StatelessWidget {
                   customBorder: const CircleBorder(),
                   child: const Padding(
                     padding: EdgeInsets.all(10),
-                    child: HugeIcon(icon: AppIcons.expand, color: AppColors.green, size: 18),
+                    child: HugeIcon(
+                      icon: AppIcons.expand,
+                      color: AppColors.green,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
@@ -364,10 +549,17 @@ class _MapPreview extends StatelessWidget {
 }
 
 class _MapSheet extends StatelessWidget {
-  const _MapSheet({required this.destinationPoint, this.branchPoint});
+  const _MapSheet({
+    required this.destinationPoint,
+    this.branchPoint,
+    this.courierPoint,
+    this.routePoints = const [],
+  });
 
   final LatLng destinationPoint;
   final LatLng? branchPoint;
+  final LatLng? courierPoint;
+  final List<LatLng> routePoints;
 
   @override
   Widget build(BuildContext context) {
@@ -381,7 +573,12 @@ class _MapSheet extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                DeliveryMap(destinationPoint: destinationPoint, branchPoint: branchPoint),
+                DeliveryMap(
+                  destinationPoint: destinationPoint,
+                  branchPoint: branchPoint,
+                  courierPoint: courierPoint,
+                  routePoints: routePoints,
+                ),
                 Positioned(
                   top: 10,
                   left: 0,
@@ -393,7 +590,9 @@ class _MapSheet extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: AppColors.white,
                         borderRadius: BorderRadius.circular(3),
-                        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 6)],
+                        boxShadow: [
+                          BoxShadow(color: AppColors.shadow, blurRadius: 6),
+                        ],
                       ),
                     ),
                   ),
@@ -477,13 +676,25 @@ class _CancelOrderDialogState extends State<_CancelOrderDialog> {
                   color: AppColors.redSoft,
                   shape: BoxShape.circle,
                 ),
-                child: HugeIcon(icon: AppIcons.cancel, color: AppColors.red, size: 26),
+                child: HugeIcon(
+                  icon: AppIcons.cancel,
+                  color: AppColors.red,
+                  size: 26,
+                ),
               ),
             ),
             const SizedBox(height: 18),
-            Text(s.cancelOrderConfirmTitle, style: AppText.h2, textAlign: TextAlign.center),
+            Text(
+              s.cancelOrderConfirmTitle,
+              style: AppText.h2,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 8),
-            Text(s.cancelOrderConfirmMessage, style: AppText.bodyMuted, textAlign: TextAlign.center),
+            Text(
+              s.cancelOrderConfirmMessage,
+              style: AppText.bodyMuted,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 18),
             TextField(
               controller: _reasonController,
@@ -535,7 +746,12 @@ class _CancelOrderDialogState extends State<_CancelOrderDialog> {
 }
 
 class _TotalsRow extends StatelessWidget {
-  const _TotalsRow({required this.label, required this.value, this.valueColor, this.bold = false});
+  const _TotalsRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.bold = false,
+  });
 
   final String label;
   final String value;

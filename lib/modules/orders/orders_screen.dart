@@ -3,6 +3,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/localization/locale_provider.dart';
+import '../../core/widgets/responsive.dart';
 import '../../core/models/order.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -131,7 +132,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
               color: AppColors.green,
               onRefresh: orders.load,
               child: ListView.separated(
-                padding: const EdgeInsets.all(10),
+                padding: Responsive.pageInsets(
+                  context,
+                  const EdgeInsets.all(10),
+                ),
                 physics: const AlwaysScrollableScrollPhysics(),
                 itemCount: orders.orders.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 12),

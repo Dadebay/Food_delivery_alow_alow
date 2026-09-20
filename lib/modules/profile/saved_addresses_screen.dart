@@ -3,6 +3,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/localization/app_strings.dart';
+import '../../core/widgets/responsive.dart';
 import '../../core/localization/locale_provider.dart';
 import '../../core/models/delivery_address.dart';
 import '../../core/models/saved_address.dart';
@@ -10,6 +11,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_snack_bar.dart';
 import '../checkout/address_picker_screen.dart';
 import '../checkout/address_provider.dart';
 
@@ -53,7 +55,19 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
       MaterialPageRoute(builder: (_) => const AddressPickerScreen()),
     );
     if (result == null || !mounted) return;
-    await context.read<AddressProvider>().addNew(result);
+    try {
+      await context.read<AddressProvider>().addNew(result);
+    } catch (_) {
+      // A rejected address used to escape this handler unhandled; the list
+      // simply stayed as it was with no explanation.
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: context.sr.addressNotSaved,
+        kind: AppSnackKind.error,
+        icon: AppIcons.location,
+      );
+    }
   }
 
   @override
@@ -85,7 +99,10 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
               onAdd: _addAddress,
             )
           : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+              padding: Responsive.pageInsets(
+                context,
+                const EdgeInsets.fromLTRB(20, 20, 20, 100),
+              ),
               itemCount: addresses.saved.length,
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {

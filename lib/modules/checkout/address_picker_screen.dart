@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -16,6 +17,7 @@ import '../../core/services/tile_cache_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/widgets/details_toggle.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/car_marker.dart';
 
@@ -48,11 +50,24 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
   late final GeocodingService _geocoder;
   bool _locating = false;
 
+  /// GPS fix'i beklenirken true. Fix birkac saniye surebiliyor ve o sure
+  /// boyunca dugme olu goruyordu — basildigini gosteren bir sey yoktu.
+  bool _findingLocation = false;
+
+  /// Jaý/girelge/gat/öý alanlari varsayilan olarak kapali: adreslerin cogu
+  /// icin doldurulmuyorlar ve acikta durduklarinda panel haritayi yiyor.
+  /// Kayitli bir adres duzenleniyorsa acik baslar — aksi halde kullanici
+  /// daha once girdigi degerleri goremezdi.
+  late bool _showDetails =
+      (widget.initial?.house.isNotEmpty ?? false) ||
+      (widget.initial?.entrance?.isNotEmpty ?? false) ||
+      (widget.initial?.floor?.isNotEmpty ?? false) ||
+      (widget.initial?.apartment?.isNotEmpty ?? false);
+
   /// What geocoding itself last wrote into the district field — as long as
   /// the field still holds exactly this, overwriting it on the next pin
   /// move is safe. The moment it doesn't match, the customer has typed
   /// something of their own, and geocoding stops touching the field.
-  String? _lastGeocodedText;
 
   late final TextEditingController _district = TextEditingController(
     text: widget.initial?.district ?? '',
@@ -82,6 +97,12 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
   List<GeocodingResult> _searchResults = const [];
   bool _searchAttempted = false;
   bool _searching = false;
+  Timer? _searchDebounce;
+
+  /// En son sunucuya sorulan metin. Ayni sorgunun tekrar gitmesini engelliyor
+  /// — kullanici bir harf silip geri yazdiginda kotadan bir istek daha
+  /// harcanmasin diye.
+  String _lastSearchedQuery = '';
 
   @override
   void initState() {
@@ -91,17 +112,14 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
       c.addListener(_onFieldChanged);
     }
     _search.addListener(_onFieldChanged);
+    _search.addListener(_onSearchTextChanged);
     // The bottom sheet hides while this has focus — see `build` — so a
     // focus change alone (not just a keystroke) has to trigger a rebuild.
     _searchFocus.addListener(_onFieldChanged);
-    if (widget.initial == null) {
-      _useMyLocation();
-    } else {
-      // Editing an already-saved address — it already has a district the
-      // customer chose, so geocoding stays quiet until they actually move
-      // the pin themselves.
-      _lastGeocodedText = _district.text;
-    }
+    // Yeni adres: haritayi kullanicinin bulundugu yere getir. Kayitli bir
+    // adres duzenleniyorsa harita zaten onun uzerinde aciliyor ve pin
+    // tasinana kadar adres oldugu gibi kaliyor.
+    if (widget.initial == null) _useMyLocation();
   }
 
   @override
@@ -112,6 +130,7 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
     _search.dispose();
     _searchFocus.dispose();
     _dragEndTimer?.cancel();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -144,24 +163,50 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
     if (!mounted || !stillOnPoint) return;
     setState(() {
       _locating = false;
-      // Only overwrite what geocoding itself put there last time — never a
-      // district the customer typed themselves.
-      final safeToOverwrite =
-          _district.text.isEmpty || _district.text == _lastGeocodedText;
-      if (result != null && safeToOverwrite) {
-        _district.text = result;
-        _lastGeocodedText = result;
-      }
+      // Pini tasimak "burasi olsun" demektir: gelen adres kosulsuz yaziliyor.
+      // Ilce alani elle doldurulamiyor (bkz. `_ChosenAddressCard`), dolayisiyla
+      // ustune yazilacak bir kullanici girdisi de yok.
+      if (result != null) _district.text = DeliveryAddress.tidyLine(result);
     });
   }
 
-  /// Runs on an explicit submit only — the enter key or the search button —
-  /// never per keystroke. The backend throttles this endpoint to 10 calls a
-  /// minute and only means it for a deliberate search, not live-as-you-type
-  /// autocomplete.
+  /// Starts a search a beat after typing stops, so results appear without
+  /// the customer having to reach for the search button.
+  ///
+  /// The delay is not cosmetic: the backend throttles this endpoint to 10
+  /// calls a minute, and firing per keystroke would spend that budget on a
+  /// single word. Waiting for the pause, refusing anything under three
+  /// characters and skipping a query already asked keeps a normal search to
+  /// one request.
+  void _onSearchTextChanged() {
+    _searchDebounce?.cancel();
+    final query = _search.text.trim();
+    if (query.length < 3) {
+      // Below the threshold there is nothing to show, and leaving the last
+      // hits up would have them read as matches for what is on screen now.
+      if (_searchResults.isNotEmpty || _searchAttempted) {
+        setState(() {
+          _searchResults = const [];
+          _searchAttempted = false;
+        });
+      }
+      return;
+    }
+    if (query == _lastSearchedQuery) return;
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 600),
+      () => unawaited(_runSearch()),
+    );
+  }
+
+  /// Runs from the debounce above, or straight away on an explicit submit —
+  /// the enter key or the search button, which cancel the pending timer so
+  /// the same query cannot go twice.
   Future<void> _runSearch() async {
+    _searchDebounce?.cancel();
     final query = _search.text.trim();
     if (query.length < 3) return;
+    _lastSearchedQuery = query;
     setState(() {
       _searching = true;
       _searchAttempted = true;
@@ -192,7 +237,7 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
   void _applySearchResult(GeocodingResult result) {
     setState(() {
       _center = result.point;
-      _district.text = result.label;
+      _district.text = DeliveryAddress.tidyLine(result.label);
       _searchResults = const [];
       _searchAttempted = false;
     });
@@ -203,17 +248,72 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
 
   bool get _canSave => _district.text.trim().isNotEmpty;
 
+  /// Fails loudly enough to act on: GPS off or permission refused both make
+  /// `fetch()` return null, and saying nothing left the button looking
+  /// broken rather than blocked.
+  /// Odagi formdan alir. `unfocus` tek basina yetiyor — arama alani odagi
+  /// kaybedince paneli geri getiren dinleyici zaten kurulu (bkz. initState).
+  void _dismissKeyboard() {
+    final focus = FocusScope.of(context);
+    if (focus.hasFocus) focus.unfocus();
+  }
+
   Future<void> _useMyLocation() async {
-    final point = await context.read<LocationService>().fetch();
-    if (point != null && mounted) {
-      setState(() => _center = point);
-      // A programmatic move like this never reaches `_onMapPositionChanged`
-      // with `hasGesture: true` — flutter_map only sets that flag for an
-      // actual finger drag — so geocoding has to be kicked off by hand here,
-      // or the pin's very first, GPS-picked position never gets looked up.
-      _map.move(point, AppConfig.pickZoom);
-      _reverseGeocode(point);
+    if (_findingLocation) return;
+    setState(() => _findingLocation = true);
+    final location = context.read<LocationService>();
+    dev.log('my-location button tapped', name: 'AddressPicker');
+    // `finally`, so a throw or a disposal mid-lookup still frees the button
+    // instead of leaving it spinning on a request nobody is waiting on.
+    LatLng? point;
+    try {
+      point = await location.fetch();
+    } finally {
+      if (mounted) setState(() => _findingLocation = false);
     }
+    dev.log(
+      'fetch -> $point source=${location.lastSource.name} '
+      'error=${location.error} approximate=${location.lastResultIsApproximate} '
+      'mounted=$mounted',
+      name: 'AddressPicker',
+    );
+    if (!mounted) return;
+
+    if (point == null) {
+      final s = context.sr;
+      // "No access to geolocation" is only true for two of the four reasons
+      // `fetch()` gives up. Indoors the permission is fine and the receiver
+      // simply has nothing, and telling the customer to grant a permission
+      // they already granted just leaves them stuck in settings.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            location.isBlocked
+                ? '${s.locationDenied} — ${s.locationDeniedHint}'
+                : s.locationNoFix,
+          ),
+        ),
+      );
+      return;
+    }
+    // Coarse *or* remembered: a ten-minute-old point can be a street away,
+    // and the pin has to be verified before it becomes a delivery address.
+    if (location.lastResultIsApproximate) {
+      // A network-based fix can be a couple of streets out. Centring on it is
+      // still the right move — it saves the customer the long drag across the
+      // city — but it must not look like the app knows their doorstep.
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.sr.locationApproximate)));
+    }
+    final found = point;
+    setState(() => _center = found);
+    // A programmatic move like this never reaches `_onMapPositionChanged`
+    // with `hasGesture: true` — flutter_map only sets that flag for an
+    // actual finger drag — so geocoding has to be kicked off by hand here,
+    // or the pin's very first, GPS-picked position never gets looked up.
+    _map.move(found, AppConfig.pickZoom);
+    _reverseGeocode(found);
   }
 
   void _save() {
@@ -251,6 +351,13 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
                 maxZoom: AppConfig.maxZoom,
                 backgroundColor: AppColors.white,
                 onPositionChanged: _onMapPositionChanged,
+                // Haritaya dokunmak "formu biraktim" demek: klavye kapaniyor
+                // ve panel yerine oturuyor. Aksi halde jaý/öý alanina yazip
+                // haritayi kaydirmak isteyen biri once klavyeyi elle
+                // kapatmak zorunda kaliyordu.
+                onTap: (_, _) => _dismissKeyboard(),
+                // Parmagini surukleyerek harita gezdirmek de ayni niyet.
+                onPointerDown: (_, _) => _dismissKeyboard(),
               ),
               children: [
                 TileLayer(
@@ -368,12 +475,6 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
             ),
           ),
 
-          Positioned(
-            right: 16,
-            bottom: 280,
-            child: _MapButton(icon: AppIcons.myLocation, onTap: _useMyLocation),
-          ),
-
           // Hidden while the search field has focus: `resizeToAvoidBottomInset`
           // is off above, so without this the keyboard would just bury the
           // sheet under itself instead of the two ever sharing the screen.
@@ -387,62 +488,166 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
               offset: _searchFocus.hasFocus ? const Offset(0, 1) : Offset.zero,
               child: Align(
                 alignment: Alignment.bottomCenter,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-                  decoration: const BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(24),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0x1F000000),
-                        blurRadius: 20,
-                        offset: Offset(0, -4),
+                // Klavye kadar yukari it. `resizeToAvoidBottomInset` bilerek
+                // kapali (yoksa harita da her klavyede yeniden boyutlanirdi),
+                // bu yuzden panelin klavyenin ustune cikmasi burada saglaniyor.
+                // Bosluk panelin *icine* konulunca ise panel ekranin altina
+                // yapisik kaldigi icin buyuyen kisim klavyenin arkasinda
+                // kaliyordu.
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // "Konumumu bul" dugmesi panelin hemen ustunde: sabit bir
+                      // `bottom` degerine yaslandiginda panel uzadikca altinda
+                      // kaliyordu. Ayni Column'da durunca panel ne kadar
+                      // buyurse buyusun hep gorunur kaliyor.
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(0, 0, 16, 12),
+                          child: _MapButton(
+                            icon: AppIcons.myLocation,
+                            busy: _findingLocation,
+                            onTap: _useMyLocation,
+                          ),
+                        ),
+                      ),
+                      // Panel ekrandan tasmasin: klavye acikken ya da
+                      // jaý/girelge/gat/öý bolumu genisken icerik ekrandan uzun
+                      // olabiliyor. `Flexible` panele kalan yer kadarini verir,
+                      // icindeki kaydirilabilir alan da gerisini halleder.
+                      Flexible(
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                          decoration: const BoxDecoration(
+                            color: AppColors.white,
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(24),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color(0x1F000000),
+                                blurRadius: 20,
+                                offset: Offset(0, -4),
+                              ),
+                            ],
+                          ),
+                          child: SafeArea(
+                            top: false,
+                            // This sheet's height is fixed by the Container above it,
+                            // while its content is not: a two-line district name, the
+                            // conditional saved-address list, and translated RU/TK
+                            // labels can all push the Column past that height by a
+                            // hair — a fraction of a pixel today, more on a larger
+                            // system font. Scrolling absorbs the overflow instead of
+                            // clipping content or tripping the RenderFlex assertion.
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    s.pickOnMap,
+                                    style: AppText.h2.copyWith(fontSize: 17),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    s.addressSearchOrPin,
+                                    style: AppText.bodyMuted.copyWith(
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  _ChosenAddressCard(
+                                    label: s.districtLabel,
+                                    address: _district.text,
+                                    placeholder: s.addressSearchOrPin,
+                                    loading: _locating,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  // Harita evi metre farkiyla bulur, kapiya kadar
+                                  // goturmez: kurye asagidakiler olmadan binayi bulup
+                                  // dogru daireyi calamiyor. Yine de cogu adreste bos
+                                  // kaliyorlar, bu yuzden istege bagli bir bolum.
+                                  DetailsToggle(
+                                    expanded: _showDetails,
+                                    label: _showDetails
+                                        ? s.addressDetailsHide
+                                        : s.addressDetailsShow,
+                                    onTap: () => setState(
+                                      () => _showDetails = !_showDetails,
+                                    ),
+                                  ),
+                                  // AnimatedSize: acilip kapanirken panel zipla
+                                  // yerine buyuyup kuculuyor.
+                                  AnimatedSize(
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.easeOut,
+                                    alignment: Alignment.topCenter,
+                                    child: _showDetails
+                                        ? Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const SizedBox(height: 10),
+                                              _Field(
+                                                controller: _house,
+                                                hint: s.houseLabel,
+                                              ),
+                                              const SizedBox(height: 10),
+                                              // Ucu de kisa degerler — yan yana tek
+                                              // satirda durunca form uzamiyor.
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: _Field(
+                                                      controller: _entrance,
+                                                      hint: s.entranceLabel,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 10),
+                                                  Expanded(
+                                                    child: _Field(
+                                                      controller: _floor,
+                                                      hint: s.floorLabel,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 10),
+                                                  Expanded(
+                                                    child: _Field(
+                                                      controller: _apartment,
+                                                      hint: s.apartmentLabel,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          )
+                                        : const SizedBox(
+                                            width: double.infinity,
+                                          ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _Field(
+                                    controller: _note,
+                                    hint: s.addressNoteHint,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  AppButton(
+                                    label: s.save,
+                                    onPressed: _canSave ? _save : null,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
-                  ),
-                  child: SafeArea(
-                    top: false,
-                    // This sheet's height is fixed by the Container above it,
-                    // while its content is not: a two-line district name, the
-                    // conditional saved-address list, and translated RU/TK
-                    // labels can all push the Column past that height by a
-                    // hair — a fraction of a pixel today, more on a larger
-                    // system font. Scrolling absorbs the overflow instead of
-                    // clipping content or tripping the RenderFlex assertion.
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            s.pickOnMap,
-                            style: AppText.h2.copyWith(fontSize: 17),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            s.addressSearchOrPin,
-                            style: AppText.bodyMuted.copyWith(fontSize: 12),
-                          ),
-                          const SizedBox(height: 14),
-                          _ChosenAddressCard(
-                            label: s.districtLabel,
-                            address: _district.text,
-                            placeholder: s.addressSearchOrPin,
-                            loading: _locating,
-                          ),
-                          const SizedBox(height: 10),
-                          _Field(controller: _note, hint: s.addressNoteHint),
-                          const SizedBox(height: 16),
-                          AppButton(
-                            label: s.save,
-                            onPressed: _canSave ? _save : null,
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ),
               ),
@@ -585,10 +790,18 @@ class _ChosenAddressCard extends StatelessWidget {
 }
 
 class _MapButton extends StatelessWidget {
-  const _MapButton({required this.icon, required this.onTap});
+  const _MapButton({
+    required this.icon,
+    required this.onTap,
+    this.busy = false,
+  });
 
   final HugeIconData icon;
   final VoidCallback onTap;
+
+  /// Swaps the glyph for a spinner while the work behind the button runs.
+  /// The spinner is sized to the glyph so the button does not resize.
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -602,7 +815,19 @@ class _MapButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: HugeIcon(icon: icon, color: AppColors.green, size: 22),
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: busy
+                ? const Padding(
+                    padding: EdgeInsets.all(2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: AppColors.green,
+                    ),
+                  )
+                : HugeIcon(icon: icon, color: AppColors.green, size: 22),
+          ),
         ),
       ),
     );

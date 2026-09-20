@@ -6,6 +6,7 @@ import '../../core/localization/locale_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/dish_grid.dart';
+import '../../core/widgets/responsive.dart';
 import '../catalog/catalog_provider.dart';
 import '../home/dish_detail_screen.dart';
 import '../home/widgets/dish_card.dart';
@@ -76,8 +77,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           : GridView.builder(
               padding: const EdgeInsets.all(20),
               itemCount: favorites.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: Responsive.gridColumns(context),
                 mainAxisSpacing: 14,
                 crossAxisSpacing: 14,
                 childAspectRatio: DishGrid.aspectRatio,

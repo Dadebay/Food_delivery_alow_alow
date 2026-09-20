@@ -36,7 +36,16 @@ class _LanguageSelectScreenState extends State<LanguageSelectScreen> {
     return Scaffold(
       backgroundColor: AppColors.onboardingBackground,
       body: SafeArea(
-        child: Padding(
+        // The screen is a single column of content, and a column does not get
+        // better by being 1300 points tall and 1000 wide — on a tablet the
+        // buttons stretched shoulder to shoulder and the Spacers below opened
+        // voids between the artwork and the question. Capping both dimensions
+        // keeps the phone layout exactly as drawn and simply centres that same
+        // block on anything larger.
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 820),
+            child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             children: [
@@ -66,6 +75,8 @@ class _LanguageSelectScreenState extends State<LanguageSelectScreen> {
               AppButton(label: s.onboardingNext, onPressed: () => context.read<LocaleProvider>().select(_selected)),
               const SizedBox(height: 12),
             ],
+          ),
+            ),
           ),
         ),
       ),

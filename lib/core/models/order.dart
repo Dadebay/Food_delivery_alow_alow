@@ -94,3 +94,38 @@ class CustomerOrder {
       status.isCustomerCancellable &&
       DateTime.now().difference(placedAt) <= OrderStatus.customerCancelWindow;
 }
+
+/// The stretch of road still ahead of the courier — what "the route" means to
+/// someone waiting for their food.
+///
+/// The backend draws the whole branch-to-door line, so once the courier is
+/// halfway there the map would otherwise keep showing the part they have
+/// already driven. This drops everything behind them and starts the line at
+/// the courier themselves.
+///
+/// Falls back to a straight courier-to-door line when there is no road route
+/// yet: something pointing the right way the moment the screen opens beats an
+/// empty map while the route request is still in flight.
+List<LatLng> remainingRoute({
+  required List<LatLng> route,
+  required LatLng destination,
+  LatLng? courier,
+}) {
+  if (courier == null) return route.length > 1 ? route : const [];
+  if (route.length < 2) return [courier, destination];
+
+  var nearestIndex = 0;
+  var nearestMeters = double.infinity;
+  const distance = Distance();
+  for (var i = 0; i < route.length; i++) {
+    final meters = distance.as(LengthUnit.Meter, courier, route[i]);
+    if (meters < nearestMeters) {
+      nearestMeters = meters;
+      nearestIndex = i;
+    }
+  }
+
+  // The courier is rarely exactly on a route vertex, so the line starts at
+  // their own position and picks the road up from the next point on.
+  return [courier, ...route.sublist(nearestIndex)];
+}

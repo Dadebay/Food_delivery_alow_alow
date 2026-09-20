@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/localization/locale_provider.dart';
+import '../../core/widgets/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
@@ -33,15 +34,11 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _goToCheckout(BuildContext context) async {
     final auth = context.read<AuthProvider>();
     if (!auth.isSignedIn) {
-      final signedIn = await Navigator.of(
-        context,
-      ).push<bool>(MaterialPageRoute(builder: (_) => const LoginScreen()));
+      final signedIn = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const LoginScreen()));
       if (signedIn != true) return;
     }
     if (!context.mounted) return;
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const CheckoutScreen()));
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CheckoutScreen()));
   }
 
   /// Refreshes the real per-district delivery fee (`POST /delivery/quote`)
@@ -64,32 +61,46 @@ class _CartScreenState extends State<CartScreen> {
     final addresses = context.watch<AddressProvider>();
     _maybeRefreshDeliveryFee(addresses, cart.subtotal);
     final deliveryFee = addresses.deliveryFee;
+    final columns = Responsive.isCompact(context) ? 1 : 2;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(title: Text(s.cartTitle)),
       body: cart.isEmpty
           ? _Empty(title: s.cartEmpty, hint: s.cartEmptyHint)
+          // Rows of cards rather than a GridView on purpose: a grid cell needs
+          // its height declared up front, and this card's height depends on
+          // whether the dish carries a note and on the customer's text-size
+          // setting. A Row lets each card keep its natural height.
+          //
+          // One card per row on a phone; on a tablet a single wide line leaves
+          // most of the screen empty, so they pair up.
           : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              itemCount: cart.items.length,
+              padding: Responsive.pageInsets(context, const EdgeInsets.fromLTRB(14, 12, 14, 12), maxContentWidth: 1100),
+              itemCount: (cart.items.length + columns - 1) ~/ columns,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final item = cart.items[index];
-                return CartLine(
-                  item: item,
-                  onIncrement: () => cart.setQuantity(
-                    item.dish,
-                    item.quantity + 1,
-                    variant: item.variant,
-                  ),
-                  onDecrement: () => cart.setQuantity(
-                    item.dish,
-                    item.quantity - 1,
-                    variant: item.variant,
-                  ),
-                  onRemove: () => cart.remove(item.dish, variant: item.variant),
-                );
+              itemBuilder: (context, row) {
+                final cells = <Widget>[];
+                for (var column = 0; column < columns; column++) {
+                  if (column > 0) cells.add(const SizedBox(width: 10));
+                  final index = row * columns + column;
+                  if (index >= cart.items.length) {
+                    cells.add(const Expanded(child: SizedBox.shrink()));
+                    continue;
+                  }
+                  final item = cart.items[index];
+                  cells.add(
+                    Expanded(
+                      child: CartLine(
+                        item: item,
+                        onIncrement: () => cart.setQuantity(item.dish, item.quantity + 1, variant: item.variant),
+                        onDecrement: () => cart.setQuantity(item.dish, item.quantity - 1, variant: item.variant),
+                        onRemove: () => cart.remove(item.dish, variant: item.variant),
+                      ),
+                    ),
+                  );
+                }
+                return Row(crossAxisAlignment: CrossAxisAlignment.start, children: cells);
               },
             ),
       bottomNavigationBar: cart.isEmpty
@@ -101,27 +112,11 @@ class _CartScreenState extends State<CartScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _SummaryRow(
-                      label: s.dishesTotal,
-                      value: Fmt.money(cart.subtotal),
-                    ),
-                    if (cart.discount > 0) ...[
-                      const SizedBox(height: 6),
-                      _SummaryRow(
-                        label: s.discountLabel,
-                        value: '-${Fmt.money(cart.discount)}',
-                        valueColor: AppColors.orange,
-                      ),
-                    ],
+                    _SummaryRow(label: s.dishesTotal, value: Fmt.money(cart.subtotal)),
+                    if (cart.discount > 0) ...[const SizedBox(height: 6), _SummaryRow(label: s.discountLabel, value: '-${Fmt.money(cart.discount)}', valueColor: AppColors.orange)],
                     // Only shown once the backend has priced delivery for
                     // this address — no client-side guess in the meantime.
-                    if (deliveryFee != null) ...[
-                      const SizedBox(height: 6),
-                      _SummaryRow(
-                        label: s.deliveryFeeLabel,
-                        value: Fmt.money(deliveryFee),
-                      ),
-                    ],
+                    if (deliveryFee != null) ...[const SizedBox(height: 6), _SummaryRow(label: addresses.quoteIsEstimate ? s.deliveryFeeEstimated : s.deliveryFeeLabel, value: Fmt.money(deliveryFee))],
                     const SizedBox(height: 14),
                     AppButton(
                       label:
@@ -138,11 +133,7 @@ class _CartScreenState extends State<CartScreen> {
 }
 
 class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
+  const _SummaryRow({required this.label, required this.value, this.valueColor});
 
   final String label;
   final String value;
@@ -155,10 +146,7 @@ class _SummaryRow extends StatelessWidget {
         Expanded(child: Text(label, style: AppText.bodyMuted)),
         Text(
           value,
-          style: AppText.body.copyWith(
-            color: valueColor,
-            fontWeight: FontWeight.w700,
-          ),
+          style: AppText.body.copyWith(color: valueColor, fontWeight: FontWeight.w700),
         ),
       ],
     );
@@ -179,12 +167,7 @@ class _Empty extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset(
-              'assets/images/empty_cart.png',
-              width: double.infinity,
-              height: 250,
-              fit: BoxFit.contain,
-            ),
+            Image.asset('assets/images/empty_cart.png', width: double.infinity, height: 250, fit: BoxFit.contain),
 
             const SizedBox(height: 16),
             Text(title, style: AppText.h2),

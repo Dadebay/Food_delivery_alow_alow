@@ -19,7 +19,11 @@ class SavedAddress {
     label: json['label'] as String?,
     isActive: json['isActive'] as bool? ?? false,
     address: DeliveryAddress(
-      district: json['address'] as String? ?? '',
+      // Addresses saved before the picker started tidying its input are
+      // still in the database with the geocoder's empty gaps joined in
+      // ("… köçesi, , , ,"). Cleaning on the way in fixes those rows on
+      // screen without a migration, and costs nothing for clean ones.
+      district: DeliveryAddress.tidyLine(json['address'] as String? ?? ''),
       house: '',
       entrance: json['entrance'] as String?,
       floor: json['floor'] as String?,

@@ -82,6 +82,11 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
+	<!-- Open full screen on iPad instead of a resizable window. Without this
+	     iPadOS puts the app in a phone-sized box, and it also refuses the
+	     orientation lock below with UISceneErrorDomain 101. -->
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationLandscapeLeft</string>

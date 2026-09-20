@@ -17,6 +17,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/widgets/details_toggle.dart';
 import '../../core/widgets/delivery_map.dart';
 import 'order_provider.dart';
 import 'widgets/courier_contact_row.dart';
@@ -94,11 +95,18 @@ class _OrderTrackScreenState extends State<OrderTrackScreen> {
               courierPoint: order.status.courierVisible
                   ? order.courierPoint
                   : null,
-              // Only draw the road once the courier has actually picked up
-              // the order — before that they're heading to the branch, not
-              // to this address, so there's no real route to show yet.
-              routePoints: order.pickedUp
-                  ? (order.routePoints ?? const [])
+              // The line starts at the courier, not at the branch: the part
+              // they have already driven is not what someone waiting for
+              // their food is looking for. Drawn as soon as the courier is
+              // on the map — before the road route arrives it is a straight
+              // courier-to-door line, so the screen never opens with an
+              // empty map.
+              routePoints: order.status.courierVisible
+                  ? remainingRoute(
+                      route: order.routePoints ?? const [],
+                      destination: order.address.point,
+                      courier: order.courierPoint,
+                    )
                   : const [],
               padding: const EdgeInsets.fromLTRB(0, 120, 0, 320),
             ),
@@ -231,7 +239,7 @@ class _MapBackButton extends StatelessWidget {
   );
 }
 
-class _BottomSheet extends StatelessWidget {
+class _BottomSheet extends StatefulWidget {
   const _BottomSheet({
     required this.order,
     required this.strings,
@@ -245,8 +253,20 @@ class _BottomSheet extends StatelessWidget {
   final Future<void> Function(String) onCall;
 
   @override
+  State<_BottomSheet> createState() => _BottomSheetState();
+}
+
+class _BottomSheetState extends State<_BottomSheet> {
+  /// Durum adimlari varsayilan olarak kapali. Sargydyny bekleyen birinin
+  /// sormak istedigi sey "nerede" — bunu kurye satiri ve ustundeki sure
+  /// cevapliyor. Adimlarin listesi merak edilince acilir.
+  bool _showDetails = false;
+
+  @override
   Widget build(BuildContext context) {
-    final s = strings;
+    final order = widget.order;
+    final s = widget.strings;
+    final distanceKm = widget.distanceKm;
 
     return Container(
       width: double.infinity,
@@ -333,15 +353,35 @@ class _BottomSheet extends StatelessWidget {
                     ],
                   ),
                 ),
-              const SizedBox(height: 18),
-              StatusTimeline(order: order, strings: s),
-              const Divider(),
-              const SizedBox(height: 6),
+              const SizedBox(height: 14),
+              // Kurye once: sayfanin varlik sebebi bu satir.
               if (order.status == OrderStatus.onTheWay &&
                   order.courierName != null)
-                CourierContactRow(order: order, strings: s, onCall: onCall)
+                CourierContactRow(
+                  order: order,
+                  strings: s,
+                  onCall: widget.onCall,
+                )
               else if (order.status == OrderStatus.delivered)
                 OrderRatingRow(order: order, strings: s),
+              const SizedBox(height: 4),
+              const Divider(),
+              DetailsToggle(
+                expanded: _showDetails,
+                label: _showDetails ? s.orderDetailsHide : s.orderDetailsShow,
+                onTap: () => setState(() => _showDetails = !_showDetails),
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                alignment: Alignment.topCenter,
+                child: _showDetails
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: StatusTimeline(order: order, strings: s),
+                      )
+                    : const SizedBox(width: double.infinity),
+              ),
             ],
           ),
         ),

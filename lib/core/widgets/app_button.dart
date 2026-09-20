@@ -80,21 +80,37 @@ class AppButton extends StatelessWidget {
                         valueColor: AlwaysStoppedAnimation(textColor),
                       ),
                     )
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (leading != null) ...[
-                          leading!,
-                          const SizedBox(width: 10),
-                        ] else if (icon != null) ...[
-                          HugeIcon(icon: icon!, size: 20, color: textColor),
-                          const SizedBox(width: 10),
+                  : Padding(
+                      // Keeps the label off the rounded corners when the
+                      // button is narrow — two of them side by side in a
+                      // dialog, for instance.
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (leading != null) ...[
+                            leading!,
+                            const SizedBox(width: 10),
+                          ] else if (icon != null) ...[
+                            HugeIcon(icon: icon!, size: 20, color: textColor),
+                            const SizedBox(width: 10),
+                          ],
+                          // A long label (a translation, a two-word action)
+                          // shrinks to fit rather than overflowing: the whole
+                          // word still reads, just a shade smaller.
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                label,
+                                maxLines: 1,
+                                softWrap: false,
+                                style: AppText.button.copyWith(color: textColor),
+                              ),
+                            ),
+                          ),
                         ],
-                        Text(
-                          label,
-                          style: AppText.button.copyWith(color: textColor),
-                        ),
-                      ],
+                      ),
                     ),
             ),
           ),

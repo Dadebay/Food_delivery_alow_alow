@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,7 +22,9 @@ import 'core/services/firebase_messaging_service.dart';
 import 'core/services/geocoding_service.dart';
 import 'core/services/location_service.dart';
 import 'core/services/push_device_registration_service.dart';
+import 'core/services/app_update_service.dart';
 import 'core/services/tile_cache_service.dart';
+import 'core/utils/system_ui_manager.dart';
 import 'modules/auth/auth_provider.dart';
 import 'modules/cart/cart_provider.dart';
 import 'modules/catalog/catalog_provider.dart';
@@ -32,7 +37,29 @@ import 'modules/shell/tab_switcher.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  // Locking portrait is right for a phone and wrong for a tablet, where both
+  // orientations are useful and iPadOS rejects the call outright when the app
+  // is windowed. Measured from the window rather than the platform name: a
+  // foldable in its unfolded state deserves the same freedom.
+  final view = PlatformDispatcher.instance.views.first;
+  final shortestSide =
+      view.physicalSize.shortestSide / view.devicePixelRatio;
+  if (shortestSide < 600) {
+    try {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+    } catch (_) {
+      // A refusal here is never worth failing startup over.
+    }
+  }
+
+  // Android's navigation bar is hidden for the whole session: our own bottom
+  // tab bar is the app's navigation, and two stacked bars at the bottom edge
+  // read as clutter. Kept up by a watcher, because a swipe brings the system
+  // bar back permanently — see SystemUiManager. Never disposed: it lives as
+  // long as the app does.
+  unawaited(SystemUiManager().start());
 
   await Firebase.initializeApp();
 
@@ -44,7 +71,12 @@ Future<void> main() async {
   // and being able to read it top to bottom is worth more than the indirection.
   final api = ApiClient();
   final connectivity = ConnectivityService();
-  final location = LocationService();
+  final location = LocationService(prefs: prefs);
+
+  // Fire-and-forget: the gate in `_Root` reacts when the answer lands, and
+  // start-up must never wait on a network call that routinely fails here.
+  final appUpdate = AppUpdateService(api: api);
+  unawaited(appUpdate.check());
 
   final pushDevices = PushDeviceRegistrationService(api: api);
   final authRepository = AuthRepository(
@@ -70,6 +102,7 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: connectivity),
+        ChangeNotifierProvider.value(value: appUpdate),
         ChangeNotifierProvider.value(value: location),
         ChangeNotifierProvider(create: (_) => LocaleProvider(prefs)),
         ChangeNotifierProvider(create: (_) => OnboardingProvider(prefs)),

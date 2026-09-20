@@ -276,9 +276,42 @@ class AuthRepository {
         ApiPaths.refresh,
         data: {'refreshToken': refreshToken},
       );
-      if (response.statusCode != 200) {
-        await _clearSession();
-        onSessionExpired?.call();
+      final code = response.statusCode ?? 0;
+      if (code != 200) {
+        // Only the server saying "this refresh token is no longer yours" is
+        // proof the session is over. A 404 from a stale deployment, a 400
+        // from a malformed body, a 429 from rate limiting — none of those
+        // mean the customer signed out, and wiping the session for them is
+        // exactly how someone ends up back on the login screen for no
+        // reason they can see.
+        if (code == 401 || code == 403) {
+          // The refresh token is single-use: the server revokes it and hands
+          // back a new one. So a 401 has two very different meanings, and
+          // treating them alike is what logs people out.
+          //
+          // Either this session really is over — or somebody else already
+          // spent this token successfully and we are holding the used copy.
+          // That second case is routine: the access token expires after
+          // fifteen minutes while several requests are in flight, and on a
+          // hot restart the previous instance is still running alongside the
+          // new one. Whoever loses that race must not wipe the session the
+          // winner just stored.
+          await _prefs.reload();
+          final stored = _prefs.getString(_refreshTokenKey);
+          if (stored != null && stored != refreshToken) {
+            // Adopt what the winner saved and let the caller retry against it.
+            final adopted = _prefs.getString(_tokenKey);
+            _api.token = adopted;
+            if (kDebugMode) {
+              debugPrint('[SESSION] refresh raced; adopted the newer token');
+            }
+            return adopted != null;
+          }
+          await _clearSession();
+          onSessionExpired?.call();
+        } else if (kDebugMode) {
+          debugPrint('[SESSION] refresh kept: server answered HTTP $code');
+        }
         return false;
       }
       final data = response.data as Map<String, dynamic>;

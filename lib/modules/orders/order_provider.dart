@@ -65,6 +65,7 @@ class OrderProvider extends ChangeNotifier {
     double? changeFrom,
     String? promoCode,
     int? deliveryEtrapId,
+    String? orderComment,
   }) async {
     final order = await _repository.place(
       items: items,
@@ -74,6 +75,7 @@ class OrderProvider extends ChangeNotifier {
       changeFrom: changeFrom,
       promoCode: promoCode,
       deliveryEtrapId: deliveryEtrapId,
+      orderComment: orderComment,
     );
     _orders = [order, ..._orders];
     notifyListeners();
@@ -132,23 +134,81 @@ class OrderProvider extends ChangeNotifier {
     if (index == -1) return;
     try {
       final updated = await _repository.order(orderId);
-      updated.courierPoint = await _repository.courierLocation(orderId);
 
-      // Draws the actual driving line behind the courier marker, not just
-      // the dot itself — from the backend, never a routing provider called
-      // directly from the phone. Gated on pickedUp rather than
-      // courierVisible — the courier is assigned and "on the way" from the
-      // moment they're heading to the branch, but the road to *this* address
-      // only exists once they've actually collected the order.
-      updated.routePoints = updated.pickedUp
-          ? await _repository.courierRoute(orderId)
-          : null;
+      // Courier position and route are fetched separately, and each is
+      // allowed to fail on its own. They used to share this method's single
+      // `try`: one 404 from the courier-location endpoint threw before
+      // `_orders[index] = updated` ever ran, so a failure there quietly
+      // discarded the order refresh itself — status included.
+      String courierNote;
+      try {
+        updated.courierPoint = await _repository.courierLocation(orderId);
+        courierNote = updated.courierPoint == null
+            ? 'null (no fix, or last fix older than 90s)'
+            : '${updated.courierPoint!.latitude},'
+                  '${updated.courierPoint!.longitude}';
+      } catch (error) {
+        courierNote = 'request failed: $error';
+      }
+
+      // Asking whenever the courier is visible rather than only after pickup.
+      // The decision belongs to the backend: it answers `routingStatus` and
+      // says READY only when it actually has a road to draw. Refusing to ask
+      // while the order sits in ASSIGNED_TO_COURIER meant a route the server
+      // could already produce was never requested — and that status is shown
+      // as "courier on the way" too, so the map looked broken.
+      String routeNote;
+      if (!updated.status.courierVisible) {
+        updated.routePoints = null;
+        routeNote = 'not requested (courier not visible yet)';
+      } else {
+        try {
+          updated.routePoints = await _repository.courierRoute(orderId);
+          routeNote = updated.routePoints == null
+              ? 'null (routingStatus not READY, or fewer than 2 points)'
+              : '${updated.routePoints!.length} points';
+        } catch (error) {
+          updated.routePoints = null;
+          routeNote = 'request failed: $error';
+        }
+      }
+
+      _logTracking(updated, courierNote, routeNote);
 
       _orders[index] = updated;
       notifyListeners();
-    } catch (_) {
+    } catch (error) {
       // The last known order state remains visible while the device is offline.
+      if (kDebugMode) {
+        debugPrint('\x1B[1;31m[TRACK #$orderId] refresh failed: $error\x1B[0m');
+      }
     }
+  }
+
+  /// Says, in one place, why the tracking map does or does not have a line to
+  /// draw. Every piece behind it can come back empty for its own reason, and
+  /// each of those reasons used to be invisible from the outside.
+  void _logTracking(CustomerOrder order, String courier, String route) {
+    if (!kDebugMode) return;
+    const cyan = '\x1B[1;36m';
+    const yellow = '\x1B[1;33m';
+    const green = '\x1B[1;32m';
+    const red = '\x1B[1;31m';
+    const reset = '\x1B[0m';
+
+    final points = order.routePoints?.length ?? 0;
+    final drawable = points > 1 || order.courierPoint != null;
+    final verdict = drawable
+        ? '${green}line WILL be drawn$reset'
+        : '${red}no line: nothing to draw$reset';
+
+    debugPrint('$cyan╔══ TRACK #${order.number} ══╗$reset');
+    debugPrint('$cyan║$reset status   : $yellow${order.status.name}$reset');
+    debugPrint('$cyan║$reset pickedUp : $yellow${order.pickedUp}$reset');
+    debugPrint('$cyan║$reset courier  : $courier');
+    debugPrint('$cyan║$reset route    : $route');
+    debugPrint('$cyan║$reset verdict  : $verdict');
+    debugPrint('$cyan╚═══════════════════╝$reset');
   }
 
   /// Walks a freshly placed order through the same stages a real one goes

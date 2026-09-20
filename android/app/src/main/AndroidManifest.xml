@@ -44,6 +44,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Sunucudan gelen bildirimler, mesajdaki channel_id cihazda yoksa
+             buraya duser. Bu satir olmadan FCM kendi "Miscellaneous" kanalini
+             kullaniyor ve uygulamanin yuksek onemli kanali devrede olmuyor. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="alowalow_orders" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

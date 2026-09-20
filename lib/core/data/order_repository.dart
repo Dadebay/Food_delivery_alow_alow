@@ -58,7 +58,22 @@ class OrderRepository {
     double? changeFrom,
     String? promoCode,
     int? deliveryEtrapId,
+    /// Free-text note for this order — shown in the admin and printed on
+    /// the main and kitchen receipts (`Order.customerNote` on the backend).
+    /// Combined with the address's own intercom/delivery note below, since
+    /// the server only has one comment slot per order.
+    String? orderComment,
   }) async {
+    // The server's own `@ArrayMinSize(1)` rejects this with a 400 anyway,
+    // but catching it here avoids a wasted round-trip for what's always a
+    // client-side bug (e.g. a double-tap racing an earlier `cart.clear()`)
+    // rather than something the customer did.
+    if (items.isEmpty) {
+      if (kDebugMode) {
+        debugPrint('[CreateOrder ${_ts()}] rejected before sending: cart is empty');
+      }
+      throw ArgumentError('Cannot place an order with an empty cart');
+    }
     if (AppConfig.useMockData) {
       await _demoDelay();
       return CustomerOrder(
@@ -88,28 +103,57 @@ class OrderRepository {
           )
           .toList(),
       'addressLabel': 'Gowşuryş salgysy',
-      'address': '${address.district}, ${address.house}',
+      // A blank house used to leave a trailing comma the courier app then
+      // printed verbatim ("Parahat 7, "). Join only the parts that exist.
+      'address': [address.district, address.house]
+          .map((part) => part.trim())
+          .where((part) => part.isNotEmpty)
+          .join(', '),
       'latitude': address.point.latitude,
       'longitude': address.point.longitude,
       'entrance': address.entrance,
       'floor': address.floor,
       'apartment': address.apartment,
-      'customerNote': address.note,
+      'customerNote': _combinedCustomerNote(orderComment, address.note),
       'promoCode': ?promoCode,
       'deliveryEtrapId': ?deliveryEtrapId,
     };
-    final response = await _api.post(ApiPaths.placeOrder, data: body);
-    if (response.statusCode == 409 && kDebugMode) {
-      _printOrderConflict(response);
+    if (kDebugMode) {
+      debugPrint('[CreateOrder ${_ts()}] POST ${ApiPaths.placeOrder}');
+      debugPrint('[CreateOrder ${_ts()}] request body: ${_preview(body)}');
     }
+    final response = await _api.post(ApiPaths.placeOrder, data: body);
     final code = response.statusCode ?? 0;
+    if (kDebugMode) {
+      debugPrint('[CreateOrder ${_ts()}] response HTTP $code: ${_preview(response.data)}');
+    }
     if (code < 200 || code >= 300) {
+      if (kDebugMode) _printOrderConflict(response);
       throw OrderPlacementException(code, _extractServerMessage(response.data));
     }
     return _fromJson(
       response.data as Map<String, dynamic>,
       fallbackItems: items,
     );
+  }
+
+  /// millisecond-precision so two requests a few ms apart still show as two
+  /// distinct lines instead of looking simultaneous.
+  static String _ts() => DateTime.now().toIso8601String().substring(11, 23);
+
+  /// The backend has one `customerNote` slot per order (max 500 chars),
+  /// shown in the admin and printed on both receipts — this is where the
+  /// customer's own order comment and the address's intercom/delivery note
+  /// get merged into it. Truncated defensively so two independently-capped
+  /// fields can never add up to more than the server accepts.
+  String? _combinedCustomerNote(String? orderComment, String? addressNote) {
+    final parts = [orderComment, addressNote]
+        .map((s) => s?.trim())
+        .where((s) => s != null && s.isNotEmpty)
+        .cast<String>();
+    final combined = parts.join('\n');
+    if (combined.isEmpty) return null;
+    return combined.length > 500 ? combined.substring(0, 500) : combined;
   }
 
   /// NestJS error bodies are `{statusCode, message, error}`, with `message`
@@ -172,17 +216,109 @@ class OrderRepository {
     }
   }
 
-  /// Prints the server's conflict reason verbatim in a compact, visible box.
-  /// A 409 is business validation (for example an already-open order), not a
-  /// transport failure, so the response body is the useful diagnostic.
-  void _printOrderConflict(Response<dynamic> response) {
+  /// Prints the server's rejection reason verbatim in a compact, visible
+  /// box — any non-2xx from `POST /orders` is business validation (a bad
+  /// promo code, an unavailable product, a 409 conflict, ...) rather than a
+  /// transport failure, so the raw response body is the useful diagnostic.
+  void _printOrderConflict(Response<dynamic> response, {String what = 'ORDER'}) {
     const red = '\x1B[1;31m';
     const yellow = '\x1B[1;33m';
+    const cyan = '\x1B[1;36m';
     const reset = '\x1B[0m';
-    debugPrint('$red╔════════ ORDER REJECTED ════════╗$reset');
-    debugPrint('$red║$reset HTTP: $yellow${response.statusCode}$reset');
-    debugPrint('$red║$reset SERVER: ${response.data}');
+    final request = response.requestOptions;
+    final code = response.statusCode;
+
+    void line(String label, Object? value) =>
+        debugPrint('$red║$reset ${label.padRight(8)}: $value');
+
+    debugPrint('$red╔════════ $what REJECTED ════════╗$reset');
+    line('WHEN', _ts());
+    line('HTTP', '$yellow$code ${_statusName(code)}$reset');
+    // Which call actually failed. Two endpoints price a cart and one creates
+    // an order; the banner used to say only "REJECTED", so a failure had to
+    // be matched to a request by eye from the surrounding lines.
+    line('CALL', '$cyan${request.method} ${request.uri}$reset');
+    // What we sent is half the answer — a 400 is almost always about the
+    // body, and reading it next to the server's complaint is what turns
+    // "Bad Request" into a fixable fact.
+    line('SENT', _preview(request.data));
+    line('SERVER', _preview(response.data));
+
+    // class-validator returns one string per broken field. Printed as a list
+    // they read as a checklist of what to fix instead of one run-on line.
+    final reasons = _validationMessages(response.data);
+    if (reasons.length > 1) {
+      for (final reason in reasons) {
+        debugPrint('$red║$reset          $yellow• $reason$reset');
+      }
+    }
+
+    if (code == 401 || code == 403) {
+      // The customer endpoints are open to customer accounts, so a 401/403
+      // here is about *which* account is signed in, not about this request's
+      // contents.
+      line('TOKEN', '$yellow${_api.tokenRole}$reset');
+    }
+
+    final hint = _rejectionHint(code, reasons, request.data);
+    if (hint != null) line('HINT', '$yellow$hint$reset');
+
     debugPrint('$red╚════════════════════════════════╝$reset');
+  }
+
+  static String _statusName(int? code) => switch (code ?? 0) {
+    400 => '(Bad Request — the body failed validation)',
+    401 => '(Unauthorized — no/expired token)',
+    403 => '(Forbidden — wrong account role)',
+    404 => '(Not Found — wrong path, or the product/order is gone)',
+    409 => '(Conflict — stale version, or already taken)',
+    422 => '(Unprocessable — business rule refused it)',
+    >= 500 => '(Server error — retry it; the app sent a valid request)',
+    _ => '',
+  };
+
+  /// Long bodies get cut: a twenty-item cart would otherwise push the
+  /// server's own message off the top of the console.
+  static String _preview(Object? value, {int max = 1200}) {
+    final text = value?.toString() ?? 'null';
+    return text.length > max ? '${text.substring(0, max)}… (${text.length} chars)' : text;
+  }
+
+  /// Every human-readable reason in a NestJS error body, one per entry.
+  static List<String> _validationMessages(Object? data) {
+    if (data is! Map) return const [];
+    final message = data['message'];
+    if (message is String) return [message];
+    if (message is List) return message.whereType<String>().toList();
+    return const [];
+  }
+
+  /// Turns the server's wording into the thing to actually go and check.
+  /// Only for the failures we have already seen in the field — anything else
+  /// gets no hint rather than a guessed one.
+  String? _rejectionHint(int? code, List<String> reasons, Object? sentBody) {
+    final joined = reasons.join(' ').toLowerCase();
+    if (joined.contains('items must contain at least 1')) {
+      return 'the cart was empty when this fired — most likely a re-quote '
+          'triggered by the cart being cleared after a successful order';
+    }
+    if (joined.contains('promo')) {
+      return 'promo code problem only — the cart itself priced fine';
+    }
+    if (joined.contains('productid') || joined.contains('variantid')) {
+      return 'a cart line points at a product/variant the server does not '
+          'have — stale catalogue, clear the cart and reload the menu';
+    }
+    if (joined.contains('latitude') || joined.contains('longitude')) {
+      return 'the address has no valid pin — the map never resolved a point';
+    }
+    if (code == 401) return 'token expired — sign in again';
+    if (code == 403) return 'signed in with a non-customer account';
+    if (code == 400 && reasons.isEmpty) {
+      return 'server sent no message field; the SENT body above is the only '
+          'lead — compare it field by field against the endpoint DTO';
+    }
+    return null;
   }
 
   /// A GPS fix older than this is treated the same as no position at all —
@@ -192,14 +328,40 @@ class OrderRepository {
 
   Future<LatLng?> courierLocation(String orderId) async {
     final response = await _api.get(ApiPaths.courierLocation(orderId));
+    if (kDebugMode) {
+      final raw = response.data.toString();
+      debugPrint(
+        '\x1B[1;33m[COURIER LOC] order $orderId -> '
+        '${raw.length > 300 ? '${raw.substring(0, 300)}…' : raw}\x1B[0m',
+      );
+    }
     final location = (response.data as Map<String, dynamic>)['location'];
-    if (location is! Map<String, dynamic>) return null;
+    // "No signal at all" and "signal too old" are different problems — one is
+    // the courier app not reporting, the other a courier who has gone out of
+    // coverage — and collapsing both into a bare null hid which one it was.
+    if (location is! Map<String, dynamic>) {
+      if (kDebugMode) {
+        debugPrint(
+          '\x1B[1;33m[COURIER LOC] order $orderId: server has no location '
+          'for this courier yet\x1B[0m',
+        );
+      }
+      return null;
+    }
 
     final recordedAt = DateTime.tryParse(
       location['recordedAt'] as String? ?? '',
     );
     if (recordedAt != null &&
         DateTime.now().toUtc().difference(recordedAt) > _staleAfter) {
+      if (kDebugMode) {
+        final age = DateTime.now().toUtc().difference(recordedAt);
+        debugPrint(
+          '\x1B[1;33m[COURIER LOC] order $orderId: last fix is '
+          '${age.inSeconds}s old (limit ${_staleAfter.inSeconds}s) — '
+          'courier app is not reporting\x1B[0m',
+        );
+      }
       return null;
     }
 
@@ -217,6 +379,15 @@ class OrderRepository {
   Future<List<LatLng>?> courierRoute(String orderId) async {
     final response = await _api.get(ApiPaths.courierRoute(orderId));
     final data = response.data;
+    // The server's own words, so a "not READY" can be handed to whoever owns
+    // the routing service instead of being reported as "the map is broken".
+    if (kDebugMode) {
+      final raw = data.toString();
+      debugPrint(
+        '\x1B[1;33m[COURIER ROUTE] order $orderId -> '
+        '${raw.length > 400 ? '${raw.substring(0, 400)}…' : raw}\x1B[0m',
+      );
+    }
     if (data is! Map<String, dynamic> || data['routingStatus'] != 'READY') {
       return null;
     }
@@ -423,6 +594,22 @@ class OrderRepository {
     int? deliveryEtrapId,
     String? promoCode,
   }) async {
+    // An empty cart has nothing to price, and the server rejects it outright
+    // ("items must contain at least 1 elements"). Checkout re-quotes whenever
+    // the subtotal changes, and clearing the cart after a successful order is
+    // such a change — so the request fired on the way out of a checkout that
+    // had just worked, and printed an ORDER REJECTED banner for an order that
+    // was already placed.
+    if (items.isEmpty) {
+      return const OrderQuote(
+        subtotal: 0,
+        discount: 0,
+        discountedSubtotal: 0,
+        deliveryFee: 0,
+        total: 0,
+      );
+    }
+
     if (AppConfig.useMockData) {
       // No backend to ask in demo mode — this is the one place a flat rate
       // stands in for a real quote, and only because there is nothing else
@@ -461,9 +648,27 @@ class OrderRepository {
       'deliveryEtrapId': ?deliveryEtrapId,
       'promoCode': ?promoCode,
     };
+    if (kDebugMode) {
+      debugPrint('[OrderQuote ${_ts()}] POST ${ApiPaths.orderQuote}');
+      // A one-line summary of *what* is being priced, so a wrong total can be
+      // traced to the cart that produced it without re-reading the raw body.
+      debugPrint(
+        '[OrderQuote ${_ts()}] cart: ${items.length} line(s), '
+        '${items.fold<int>(0, (sum, i) => sum + i.quantity)} item(s), '
+        'subtotal $subtotal, etrap ${deliveryEtrapId ?? '—'}, '
+        'promo ${promoCode ?? '—'}',
+      );
+      debugPrint('[OrderQuote ${_ts()}] request body: $body');
+    }
     final response = await _api.post(ApiPaths.orderQuote, data: body);
     final code = response.statusCode ?? 0;
+    if (kDebugMode) {
+      debugPrint('[OrderQuote ${_ts()}] response HTTP $code: ${_preview(response.data)}');
+    }
     if (code < 200 || code >= 300) {
+      // Named apart from a real order rejection: this endpoint only prices a
+      // cart, and a failure here leaves the customer's order untouched.
+      if (kDebugMode) _printOrderConflict(response, what: 'QUOTE');
       throw OrderPlacementException(code, _extractServerMessage(response.data));
     }
     return OrderQuote.fromJson(response.data as Map<String, dynamic>);
@@ -471,7 +676,7 @@ class OrderRepository {
 
   String? _absoluteImageUrl(Object? rawUrl) {
     if (rawUrl is! String || rawUrl.isEmpty) return null;
-    return Uri.parse(AppConfig.apiBaseUrl).resolve(rawUrl).toString();
+    return Uri.parse(ApiClient.currentBaseUrl).resolve(rawUrl).toString();
   }
 
   LatLng? _branchPoint(Map<String, dynamic> json) {

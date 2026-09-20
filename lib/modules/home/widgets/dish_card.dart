@@ -10,7 +10,8 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/cart_fly_animation.dart';
-import '../../../core/widgets/dish_thumbnail.dart';
+import 'dish_card_gallery.dart';
+import '../../../core/widgets/favorite_toggle.dart';
 import '../../cart/cart_provider.dart';
 
 /// One dish tile in the home/favorites/category grid.
@@ -67,24 +68,22 @@ class DishCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    DishThumbnail(dish: dish, borderRadius: BorderRadius.zero),
-                    // Just enough shade at the top for the heart and the
-                    // discount pill to hold up over a bright photo.
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        // gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x3D000000), Colors.transparent], stops: [0.0, 0.5]),
-                      ),
-                    ),
+                    DishCardGallery(dish: dish),
                     if (dish.hasDiscount)
                       Positioned(
                         top: 8,
                         left: 8,
-                        child: _Badge(text: '-${dish.discountPercent}%'),
+                        // Decoration, so it stays out of the gallery's way —
+                        // anything over the pager that accepts the pointer
+                        // stops the card swiping there.
+                        child: IgnorePointer(
+                          child: _Badge(text: '-${dish.discountPercent}%'),
+                        ),
                       ),
                     Positioned(
                       top: 6,
                       right: 6,
-                      child: _FavoriteButton(
+                      child: FavoriteToggle(
                         active: dish.isFavorite,
                         onTap: onToggleFavorite,
                       ),
@@ -157,7 +156,13 @@ class _Price extends StatelessWidget {
             dish.hasVariants
                 ? context.s.fromPrice(Fmt.money(dish.minimumPrice))
                 : Fmt.money(dish.discountedPrice),
-            style: AppText.figure.copyWith(fontSize: 15),
+            // A shade lighter than the shared figure style: on a card the
+            // price sits right under the name, and two bold lines stacked
+            // read as one heavy block.
+            style: AppText.figure.copyWith(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           if (dish.hasDiscount) ...[
             const SizedBox(width: 5),
@@ -396,89 +401,6 @@ class _Badge extends StatelessWidget {
       child: Text(
         text,
         style: AppText.chip.copyWith(color: AppColors.white, fontSize: 11),
-      ),
-    );
-  }
-}
-
-class _FavoriteButton extends StatelessWidget {
-  const _FavoriteButton({required this.active, required this.onTap});
-
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      // Slightly translucent rather than solid white — reads as glass on
-      // the photo instead of a disc punched out of it.
-      color: Colors.transparent,
-      shape: CircleBorder(
-        side: BorderSide(
-          color: AppColors.white.withValues(alpha: 0.65),
-          width: 1,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(7).copyWith(top: 9),
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                // Only present while active, so it's built fresh — and
-                // plays once — every time the heart turns on, rather than
-                // replaying on unrelated rebuilds.
-                if (active)
-                  TweenAnimationBuilder<double>(
-                    key: const ValueKey('burst'),
-                    tween: Tween(begin: 0.0, end: 1.0),
-                    duration: const Duration(milliseconds: 420),
-                    curve: Curves.easeOut,
-                    builder: (context, t, child) => Opacity(
-                      opacity: 1 - t,
-                      child: Transform.scale(
-                        scale: 1 + t * 1.6,
-                        child: const Icon(
-                          Icons.favorite,
-                          color: AppColors.orange,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ),
-                TweenAnimationBuilder<double>(
-                  key: ValueKey(active),
-                  tween: Tween(begin: active ? 1.35 : 1.0, end: 1.0),
-                  duration: const Duration(milliseconds: 280),
-                  curve: Curves.easeOutBack,
-                  builder: (context, scale, child) =>
-                      Transform.scale(scale: scale, child: child),
-                  // HugeIcons only ships the outline heart — favoriting
-                  // swaps to Material's solid one instead of just
-                  // recolouring the outline, so the change is a shape the
-                  // eye catches, not just a tint.
-                  child: active
-                      ? const Icon(
-                          Icons.favorite,
-                          color: AppColors.orange,
-                          size: 18,
-                        )
-                      : HugeIcon(
-                          icon: AppIcons.favorite,
-                          color: AppColors.textMuted,
-                          size: 18,
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

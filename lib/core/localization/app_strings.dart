@@ -67,17 +67,43 @@ abstract class AppStrings {
   String get payCard;
   String get payCardPhase2;
   String get dishesTotal;
+  String get updateRequiredTitle;
+  String get updateRequiredBody;
+  String get updateNow;
+  String get updateLater;
+  String get updateAvailableTitle;
+  String get updateAvailableBody;
+  String get updateNeedHelp;
+  String get updateStoreFailed;
+  String updateCurrentVersion(String version);
+
   String get deliveryFeeLabel;
+
+  /// Marks a delivery fee the app estimated because the server never
+  /// answered — the customer must not read it as a settled price.
+  String get deliveryFeeEstimated;
   String get discountLabel;
   String get grandTotal;
   String get placeOrder;
   String get selectAddressFirst;
+
+  /// The point is usable for this order, but it did not reach the customer's
+  /// saved list.
+  String get addressNotSaved;
   String get pickOnMap;
   String get houseLabel;
   String get entranceLabel;
   String get floorLabel;
   String get apartmentLabel;
   String get districtLabel;
+
+  /// Adres formundaki jaý/girelge/gat/öý alanlarini acip kapatan dugme.
+  /// Sargyt yzarlama sahypasyndaky "Jikme-jiklikler" acyjysy.
+  String get orderDetailsShow;
+  String get orderDetailsHide;
+
+  String get addressDetailsShow;
+  String get addressDetailsHide;
   String get addressNoteHint;
   String get addressSearchHint;
   String get addressSearchNoResults;
@@ -90,6 +116,12 @@ abstract class AppStrings {
   String get promoCodePrompt;
   String get promoApply;
   String promoDiscountApplied(String amount);
+  String get orderCommentLabel;
+  String get orderCommentHint;
+  String get orderCommentOptional;
+  /// Multiline fields get no "done" key on the iOS keyboard, so the comment
+  /// card shows its own button while the field has focus.
+  String get keyboardDoneAction;
   String get itemsSummaryLabel;
   String get changeAddress;
 
@@ -139,6 +171,7 @@ abstract class AppStrings {
   // ─── Auth ────────────────────────────────────────────────────
   String get loginTitle;
   String get loginSubtitle;
+
   String get signIn;
   String get signInPromptOrders;
   String get signInPromptProfile;
@@ -195,6 +228,14 @@ abstract class AppStrings {
   String get offlineNoConnection;
   String get locationDenied;
   String get locationDeniedHint;
+
+  /// Permission is granted and the service is on, the receiver just has
+  /// nothing — the indoor case, where "no access" would be a lie.
+  String get locationNoFix;
+
+  /// Shown when the point came from Wi-Fi/cell rather than satellites, so it
+  /// can be a street or two out.
+  String get locationApproximate;
   String get openSettings;
 }
 
@@ -310,7 +351,30 @@ class StringsRu extends AppStrings {
   @override
   String get dishesTotal => 'Блюда';
   @override
+  String get updateRequiredTitle => 'Нужно обновить приложение';
+  @override
+  String get updateRequiredBody =>
+      'Эта версия больше не поддерживается. Обновите приложение, чтобы продолжить заказывать.';
+  @override
+  String get updateNow => 'Обновить';
+  @override
+  String get updateLater => 'Позже';
+  @override
+  String get updateAvailableTitle => 'Вышла новая версия';
+  @override
+  String get updateAvailableBody =>
+      'Обновите приложение, чтобы получить последние улучшения.';
+  @override
+  String get updateNeedHelp => 'Нужна помощь?';
+  @override
+  String get updateStoreFailed =>
+      'Не удалось открыть магазин приложений. Найдите приложение вручную.';
+  @override
+  String updateCurrentVersion(String version) => 'Версия $version';
+  @override
   String get deliveryFeeLabel => 'Доставка';
+  @override
+  String get deliveryFeeEstimated => 'Доставка (примерно)';
   @override
   String get discountLabel => 'Скидка';
   @override
@@ -319,6 +383,9 @@ class StringsRu extends AppStrings {
   String get placeOrder => 'Заказать';
   @override
   String get selectAddressFirst => 'Сначала укажите адрес доставки';
+  @override
+  String get addressNotSaved =>
+      'Адрес не сохранился в списке, но заказ на него оформить можно';
   @override
   String get pickOnMap => 'Указать на карте';
   @override
@@ -331,6 +398,18 @@ class StringsRu extends AppStrings {
   String get apartmentLabel => 'кв.';
   @override
   String get districtLabel => 'Мкр.';
+
+  @override
+  String get orderDetailsShow => 'Подробности заказа';
+
+  @override
+  String get orderDetailsHide => 'Свернуть';
+
+  @override
+  String get addressDetailsShow => 'Дом, подъезд, этаж, квартира';
+
+  @override
+  String get addressDetailsHide => 'Свернуть';
   @override
   String get addressNoteHint => 'Например: домофон не работает, позвоните';
   @override
@@ -358,6 +437,14 @@ class StringsRu extends AppStrings {
   @override
   String promoDiscountApplied(String amount) =>
       'Промокод применён! Скидка $amount';
+  @override
+  String get orderCommentLabel => 'Комментарий к заказу';
+  @override
+  String get orderCommentHint => 'Например: без лука, позвоните перед доставкой';
+  @override
+  String get orderCommentOptional => 'необязательно';
+  @override
+  String get keyboardDoneAction => 'Готово';
   @override
   String get itemsSummaryLabel => 'Ваш заказ';
   @override
@@ -561,6 +648,12 @@ class StringsRu extends AppStrings {
   String get locationDeniedHint =>
       'Разрешите доступ, чтобы указать адрес на карте.';
   @override
+  String get locationNoFix =>
+      'Не удалось определить местоположение — отметьте дом на карте вручную.';
+  @override
+  String get locationApproximate =>
+      'Местоположение примерное — уточните точку на карте.';
+  @override
   String get openSettings => 'Настройки';
 
   /// Russian needs three plural forms.
@@ -686,7 +779,30 @@ class StringsTm extends AppStrings {
   @override
   String get dishesTotal => 'Tagamlar';
   @override
+  String get updateRequiredTitle => 'Programmany täzelemeli';
+  @override
+  String get updateRequiredBody =>
+      'Bu wersiýa indi goldanylmaýar. Sargyt etmegi dowam etdirmek üçin programmany täzeläň.';
+  @override
+  String get updateNow => 'Täzele';
+  @override
+  String get updateLater => 'Soňra';
+  @override
+  String get updateAvailableTitle => 'Täze wersiýa çykdy';
+  @override
+  String get updateAvailableBody =>
+      'Iň soňky gowulaşdyrmalary almak üçin programmany täzeläň.';
+  @override
+  String get updateNeedHelp => 'Kömek gerekmi?';
+  @override
+  String get updateStoreFailed =>
+      'Programma dükanyny açyp bolmady. Programmany elden gözläň.';
+  @override
+  String updateCurrentVersion(String version) => 'Wersiýa $version';
+  @override
   String get deliveryFeeLabel => 'Eltip bermek';
+  @override
+  String get deliveryFeeEstimated => 'Eltip bermek (takmynan)';
   @override
   String get discountLabel => 'Arzanladyş';
   @override
@@ -695,6 +811,9 @@ class StringsTm extends AppStrings {
   String get placeOrder => 'Sargyt et';
   @override
   String get selectAddressFirst => 'Ilki gowşuryş salgysyny saýlaň';
+  @override
+  String get addressNotSaved =>
+      'Salgy sanawa ýazylmady, ýöne şu sargyt üçin ulanyp bilersiňiz';
   @override
   String get pickOnMap => 'Kartada görkez';
   @override
@@ -707,6 +826,18 @@ class StringsTm extends AppStrings {
   String get apartmentLabel => 'öý';
   @override
   String get districtLabel => 'Adres';
+
+  @override
+  String get orderDetailsShow => 'Sargyt jikme-jiklikleri';
+
+  @override
+  String get orderDetailsHide => 'Ýygnamak';
+
+  @override
+  String get addressDetailsShow => 'Jaý, girelge, gat, öý';
+
+  @override
+  String get addressDetailsHide => 'Ýygnamak';
   @override
   String get addressNoteHint => 'Mysal üçin: domofon işlänok, jaň ediň';
   @override
@@ -733,6 +864,14 @@ class StringsTm extends AppStrings {
   @override
   String promoDiscountApplied(String amount) =>
       'Promokod ulanyldy! Arzanladyş: $amount';
+  @override
+  String get orderCommentLabel => 'Sargyt barada bellik';
+  @override
+  String get orderCommentHint => 'Mysal üçin: sogansyz, eltmezden öň jaň ediň';
+  @override
+  String get orderCommentOptional => 'hökman däl';
+  @override
+  String get keyboardDoneAction => 'Taýýar';
   @override
   String get itemsSummaryLabel => 'Sargydyňyz';
   @override
@@ -934,6 +1073,12 @@ class StringsTm extends AppStrings {
   String get locationDenied => 'Geolokasiýa rugsat ýok';
   @override
   String get locationDeniedHint => 'Kartada salgy görkezmek üçin rugsat beriň.';
+  @override
+  String get locationNoFix =>
+      'Ýerleşýän ýeriňiz kesgitlenmedi — jaýy kartada özüňiz belläň.';
+  @override
+  String get locationApproximate =>
+      'Ýerleşýän ýer takmynan — nokady kartada takyklaň.';
   @override
   String get openSettings => 'Sazlamalar';
 }

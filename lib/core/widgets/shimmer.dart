@@ -6,9 +6,21 @@ import '../theme/app_colors.dart';
 /// [child] paints — the shared "still loading" signal behind every skeleton
 /// screen in the app, so individual bones don't need their own animation.
 class Shimmer extends StatefulWidget {
-  const Shimmer({super.key, required this.child});
+  const Shimmer({
+    super.key,
+    required this.child,
+    this.baseColor,
+    this.highlightColor,
+  });
 
   final Widget child;
+
+  /// What the child is tinted to outside the band, and at its brightest
+  /// inside it. The defaults suit a skeleton bone sitting on white; a
+  /// placeholder that already paints a grey field behind the child needs a
+  /// base darker than that field or the child disappears into it.
+  final Color? baseColor;
+  final Color? highlightColor;
 
   @override
   State<Shimmer> createState() => _ShimmerState();
@@ -33,14 +45,12 @@ class _ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
       child: widget.child,
       builder: (context, child) {
         final t = _controller.value;
+        final base = widget.baseColor ?? AppColors.divider;
+        final highlight = widget.highlightColor ?? AppColors.white;
         return ShaderMask(
           blendMode: BlendMode.srcATop,
           shaderCallback: (bounds) => LinearGradient(
-            colors: const [
-              AppColors.divider,
-              AppColors.white,
-              AppColors.divider,
-            ],
+            colors: [base, highlight, base],
             stops: const [0.35, 0.5, 0.65],
             // The band sweeps fully off-canvas to fully off-canvas the other
             // side each cycle, so it enters and exits cleanly at the edges.

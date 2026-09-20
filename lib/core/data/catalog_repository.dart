@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+
+
 import '../constants/app_config.dart';
 import '../models/dish.dart';
 import '../network/api_client.dart';
@@ -58,23 +61,42 @@ class CatalogRepository {
   }
 
   List<Dish> _parseDishes(Object? data) {
-    return (data as List<dynamic>).map((e) {
+    final dishes = (data as List<dynamic>).map((e) {
       final json = e as Map<String, dynamic>;
+      final images = _imageUrls(json['images']);
+      // The admin panel's chosen cover leads the gallery whether or not it
+      // is also in `images` — otherwise a dish opens on one photo and the
+      // first swipe lands back on that same photo.
+      final display = _absoluteImageUrl(json['displayImageUrl']);
+      final gallery = display != null && !images.contains(display)
+          ? <String>[display, ...images]
+          : images;
       return Dish(
         id: json['id'].toString(),
         name: json['name'] as String,
         description: json['description'] as String? ?? '',
         price: (json['price'] as num).toDouble(),
         categoryId: json['categoryId'].toString(),
-        imageUrl:
-            _absoluteImageUrl(json['displayImageUrl']) ??
-            _imageUrl(json['images']),
+        imageUrl: display ?? (images.isEmpty ? null : images.first),
         pricingType: _pricingType(json['pricingType']),
         minPrice: (json['minPrice'] as num?)?.toDouble(),
         variantLabel: json['variantLabel'] as String?,
         variants: _parseVariants(json['variants']),
+        imageUrls: gallery,
       );
     }).toList();
+    assert(() {
+      if (!_loggedGallery) {
+        _loggedGallery = true;
+        final counts = dishes.map((d) => d.gallery.length).toList()..sort();
+        _shout(
+          'photos per dish: ${counts.isEmpty ? 0 : counts.last} max, '
+          '${counts.where((c) => c > 1).length}/${counts.length} with a gallery',
+        );
+      }
+      return true;
+    }());
+    return dishes;
   }
 
   List<DishVariant> _parseVariants(Object? data) {
@@ -88,6 +110,7 @@ class CatalogRepository {
             price: (json['price'] as num).toDouble(),
             description: json['description'] as String?,
             imageUrl: _imageUrl(json['images']),
+            imageUrls: _imageUrls(json['images']),
             isActive: json['isActive'] as bool? ?? true,
           );
         })
@@ -115,18 +138,62 @@ class CatalogRepository {
     }
   }
 
+  /// Every usable photo in an `images` array, in the order it arrived —
+  /// the dish page swipes through these. Entries without a real url are
+  /// dropped rather than turned into blank pages.
+  List<String> _imageUrls(Object? images) {
+    if (images is! List) return const [];
+    final urls = <String>[];
+    for (final entry in images) {
+      final resolved = _absoluteImageUrl(_rawImageUrl(entry));
+      if (resolved != null && !urls.contains(resolved)) urls.add(resolved);
+    }
+    return urls;
+  }
+
   String? _imageUrl(Object? images) {
     if (images is! List || images.isEmpty) return null;
-    final first = images.first;
-    if (first is! Map) return null;
-    final url = first['url'];
-    if (url is! String || url.isEmpty) return null;
-    return _absoluteImageUrl(url);
+    return _absoluteImageUrl(_rawImageUrl(images.first));
+  }
+
+  /// One entry of an `images` array. It is normally `{"url": "..."}`, but a
+  /// plain string and the other key the admin API uses for the same thing
+  /// are both accepted — reading only `url` meant a gallery of four photos
+  /// silently collapsed to the single cover image.
+  Object? _rawImageUrl(Object? entry) {
+    if (entry is String) return entry;
+    if (entry is! Map) return null;
+    return entry['url'] ?? entry['imageUrl'] ?? entry['path'];
   }
 
   String? _absoluteImageUrl(Object? rawUrl) {
     if (rawUrl is! String || rawUrl.isEmpty) return null;
-    return Uri.parse(AppConfig.apiBaseUrl).resolve(rawUrl).toString();
+    final resolved = Uri.parse(ApiClient.currentBaseUrl).resolve(rawUrl).toString();
+    assert(() {
+      if (!_loggedImageUrl) {
+        _loggedImageUrl = true;
+        _shout('first image url: $rawUrl → $resolved');
+      }
+      return true;
+    }());
+    return resolved;
+  }
+
+  /// Debug only — one line per run, enough to see what the menu's photos
+  /// actually point at without a line per dish.
+  static bool _loggedImageUrl = false;
+
+  /// Debug only — says in one line whether the backend is actually sending
+  /// more than the cover photo, which is the first thing to check when the
+  /// dish page has nothing to swipe through.
+  static bool _loggedGallery = false;
+
+  /// Debug only. `dart:developer`'s log goes to the DevTools logging view,
+  /// which is easy to miss when you are watching the run console — this goes
+  /// straight there, in colour, so it cannot be scrolled past unnoticed.
+  static void _shout(String message) {
+    // ANSI: bright black on yellow, then reset.
+    debugPrint('\x1B[30;103m CATALOG \x1B[0m \x1B[93m$message\x1B[0m');
   }
 
   static Future<void> _demoDelay() =>

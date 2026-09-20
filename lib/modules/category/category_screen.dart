@@ -7,10 +7,13 @@ import 'package:provider/provider.dart';
 
 import '../../core/localization/locale_provider.dart';
 import '../../core/models/dish.dart';
+import '../../core/services/catalog_image_cache_manager.dart';
+import '../../core/widgets/brand_shimmer.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/delivery_loader.dart';
+import '../../core/widgets/responsive.dart';
 import '../catalog/catalog_provider.dart';
 import 'category_dishes_screen.dart';
 
@@ -120,7 +123,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
               padding: const EdgeInsets.all(10),
               itemCount: catalog.categories.length,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _isGridView ? 2 : 1,
+                // Capped at three: a category card carries a name long
+                // enough to wrap ("Un we hamyrdan tagamlar"), and a fourth
+                // column starts truncating them.
+                crossAxisCount: _isGridView
+                    ? Responsive.gridColumns(context).clamp(2, 3)
+                    : Responsive.gridColumns(context, compact: 1).clamp(1, 2),
                 mainAxisSpacing: 14,
                 crossAxisSpacing: 14,
                 childAspectRatio: _isGridView ? 1.02 : 2.1,
@@ -336,8 +344,11 @@ class _ParallaxCategoryCard extends StatelessWidget {
                     children: [
                       Text(
                         name,
+                        // Heavier than an ordinary heading: this one sits on
+                        // a photo, where 700 reads thin against the scrim.
                         style: AppText.h2.copyWith(
                           fontSize: 20,
+                          fontWeight: FontWeight.w800,
                           color: AppColors.white,
                         ),
                         maxLines: 1,
@@ -380,6 +391,7 @@ class _CategoryImage extends StatelessWidget {
     if (value.startsWith('http')) {
       return CachedNetworkImage(
         imageUrl: value,
+        cacheManager: CatalogImageCacheManager.instance,
         fit: BoxFit.cover,
         // A menu photo is uploaded at full camera resolution; decoding that
         // at its native size for every tile is what made images land a beat
@@ -390,6 +402,10 @@ class _CategoryImage extends StatelessWidget {
                     MediaQuery.devicePixelRatioOf(context))
                 .round(),
         fadeInDuration: const Duration(milliseconds: 150),
+        // Without this the tile is blank until the cover lands; the grey
+        // field and sweeping wordmark say the same thing every other
+        // loading photo in the app says.
+        placeholder: (context, url) => const BrandShimmerBox(),
         errorWidget: (context, url, error) => fallback,
       );
     }

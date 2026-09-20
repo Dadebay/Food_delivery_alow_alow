@@ -14,6 +14,12 @@ class BannerProvider extends ChangeNotifier {
   Future<void> load() async {
     try {
       _banners = await _repository.banners();
+    } catch (_) {
+      // Banners are decoration: the menu, the cart and checkout all work
+      // without them. This runs fire-and-forget from the home screen, so an
+      // unreachable API used to surface here as an unhandled exception in the
+      // console — a red herring on every offline launch, on top of leaving
+      // whatever banners were already loaded untouched anyway.
     } finally {
       notifyListeners();
     }

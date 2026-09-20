@@ -22,6 +22,7 @@ class Dish {
     this.minPrice,
     this.variantLabel,
     this.variants = const [],
+    this.imageUrls = const [],
   });
 
   final String id;
@@ -30,6 +31,19 @@ class Dish {
   final double price;
   final String categoryId;
   final String? imageUrl;
+
+  /// Every photo the backend holds for this dish, in the order it sends
+  /// them. [imageUrl] stays the single one to show wherever there is room
+  /// for exactly one — a card, a cart row — while the dish page swipes
+  /// through all of them.
+  final List<String> imageUrls;
+
+  /// The gallery to swipe through, never empty when the dish has any photo
+  /// at all: a backend that sends only `displayImageUrl` still gets one
+  /// page rather than a blank one.
+  List<String> get gallery => imageUrls.isNotEmpty
+      ? imageUrls
+      : (imageUrl == null ? const <String>[] : <String>[imageUrl!]);
 
   /// e.g. 15 for "-15%" — the weekly promo badge.
   final int? discountPercent;
@@ -79,6 +93,7 @@ class DishVariant {
     this.description,
     this.imageUrl,
     this.isActive = true,
+    this.imageUrls = const [],
   });
 
   final String id;
@@ -87,6 +102,14 @@ class DishVariant {
   final String? description;
   final String? imageUrl;
   final bool isActive;
+
+  /// This variant's own photos — see [Dish.imageUrls].
+  final List<String> imageUrls;
+
+  /// See [Dish.gallery].
+  List<String> get gallery => imageUrls.isNotEmpty
+      ? imageUrls
+      : (imageUrl == null ? const <String>[] : <String>[imageUrl!]);
 }
 
 class DishCategory {

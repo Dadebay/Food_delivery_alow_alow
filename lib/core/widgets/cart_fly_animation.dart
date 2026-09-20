@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../services/catalog_image_cache_manager.dart';
 import '../theme/app_colors.dart';
 
 /// Plays a "flies into the cart" flourish from wherever a dish was added,
@@ -22,7 +23,10 @@ class CartFlyAnimation {
   static ImageProvider? imageFor(String? imageUrl) {
     if (imageUrl == null || imageUrl.isEmpty) return null;
     return imageUrl.startsWith('http')
-        ? CachedNetworkImageProvider(imageUrl)
+        ? CachedNetworkImageProvider(
+            imageUrl,
+            cacheManager: CatalogImageCacheManager.instance,
+          )
         : AssetImage(imageUrl);
   }
 

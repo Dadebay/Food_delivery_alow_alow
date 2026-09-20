@@ -45,8 +45,8 @@ class DeliveryAddress {
 
   factory DeliveryAddress.fromJson(Map<String, dynamic> json) =>
       DeliveryAddress(
-        district: json['district'] as String? ?? '',
-        house: json['house']?.toString() ?? '',
+        district: tidyLine(json['district'] as String? ?? ''),
+        house: tidyLine(json['house']?.toString() ?? ''),
         entrance: json['entrance']?.toString(),
         floor: json['floor']?.toString(),
         apartment: json['apartment']?.toString(),
@@ -67,6 +67,30 @@ class DeliveryAddress {
     'lat': point.latitude,
     'lng': point.longitude,
   };
+
+  /// Cleans up an address line before it is shown or stored.
+  ///
+  /// Geocoders build their line by joining whatever fields they happen to
+  /// have, and a point with no street or no district comes back with the gaps
+  /// still joined — "Köşi, Görogly köçesi, , ," and similar. Collapsing the
+  /// runs and trimming the ends is done here rather than at the one call site
+  /// that first showed it, so a line cannot reach the field, the order or the
+  /// courier's screen with the gaps still in it.
+  static String tidyLine(String value) => value
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'(\s*,\s*){2,}'), ', ')
+      .replaceAll(RegExp(r'^[\s,]+'), '')
+      .replaceAll(RegExp(r'[\s,]+$'), '')
+      .trim();
+
+  /// The single free-text line the API stores. The house is optional, so it
+  /// is only appended when there is one — otherwise the line would end in a
+  /// stray comma.
+  String get apiLine {
+    final tidyDistrict = tidyLine(district);
+    final tidyHouse = tidyLine(house);
+    return tidyHouse.isEmpty ? tidyDistrict : '$tidyDistrict, $tidyHouse';
+  }
 
   /// "Мкр. Parahat 7, дом 12" — checkout card headline. The picker now
   /// collects the whole address as one free-text line, so `house` is empty

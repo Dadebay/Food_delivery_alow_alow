@@ -15,6 +15,12 @@ import 'auth_provider.dart';
 /// Turkmen mobile numbers are 8 digits after the +993 country code.
 const int _phoneDigits = 8;
 
+/// Full-bleed artwork behind the sign-in card. Swapping it is a one-line
+/// change: drop the new file in `assets/`, list it in `pubspec.yaml`, and
+/// point this constant at it. The card below carries every piece of text, so
+/// the picture only has to look good — it never has to stay readable.
+const String _backgroundAsset = 'assets/onboard.png';
+
 /// Phone + SMS code — no passwords. The name is asked alongside the phone
 /// number, once, on sign-up: it's sent as `firstName` on the verify call
 /// and only echoed back for a brand-new account, so an existing customer
@@ -71,45 +77,61 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: AppColors.green,
       body: Stack(
         children: [
-          // The flame/smoke artwork bakes in its own dark-green base, so it
-          // doubles as the screen's background rather than sitting on top of
-          // a separately-coloured one.
           Positioned.fill(
-            child: Image.asset('assets/onboard.png', fit: BoxFit.cover),
+            child: Image.asset(_backgroundAsset, fit: BoxFit.cover),
           ),
-          // Scrollable rather than a bare Column — the phone stage grew a name
-          // field, and with the keyboard up behind it that's enough content to
-          // overflow a short phone. The LayoutBuilder/ConstrainedBox pairing
-          // keeps the Spacers below working exactly as before whenever
-          // everything still fits.
+          // Photographs are busy, and text laid straight over one is a
+          // coin toss. Everything readable lives on the card below; this
+          // gradient only has to carry the picture into the card's edge so
+          // the two do not meet on a hard line.
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x660B3B2E),
+                    Color(0x00000000),
+                    Color(0xCC0B3B2E),
+                  ],
+                  stops: [0, 0.45, 1],
+                ),
+              ),
+            ),
+          ),
+          // The scroll skeleton is deliberately unchanged: with the keyboard
+          // up, the name and phone fields together are already taller than a
+          // short phone, and this is what keeps them reachable.
           SafeArea(
+            bottom: false,
             child: LayoutBuilder(
               builder: (context, constraints) => SingleChildScrollView(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: IntrinsicHeight(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Padding(
                           padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                           child: Row(
                             children: [
-                              IconButton(
-                                // At the code stage, back steps back to the phone field;
-                                // at the phone stage, it closes the sign-in prompt
-                                // entirely and returns the customer to what they were
-                                // doing (e.g. still browsing, cart intact).
-                                onPressed: onCodeStage
+                              _GlassButton(
+                                // At the code stage, back steps back to the phone
+                                // field; at the phone stage it closes the prompt
+                                // and returns the customer to what they were doing
+                                // (still browsing, cart intact).
+                                onTap: onCodeStage
                                     ? () => context
                                           .read<AuthProvider>()
                                           .backToPhone()
                                     : () =>
                                           Navigator.of(context).maybePop(false),
-                                icon: const HugeIcon(
+                                child: const HugeIcon(
                                   icon: AppIcons.back,
                                   color: AppColors.white,
-                                  size: 24,
+                                  size: 22,
                                 ),
                               ),
                               const Spacer(),
@@ -120,108 +142,89 @@ class _LoginScreenState extends State<LoginScreen> {
                             ],
                           ),
                         ),
-                        const Spacer(),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Image.asset(
+                        Expanded(
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 32,
+                                vertical: 24,
+                              ),
+                              child: Image.asset(
                                 'assets/only_text_logo.png',
-                                height: 80,
+                                height: 72,
                               ),
-                              const SizedBox(height: 28),
-                              Text(
-                                s.loginTitle,
-                                style: AppText.h1.copyWith(fontSize: 30),
+                            ),
+                          ),
+                        ),
+                        _AuthCard(
+                          title: s.loginTitle,
+                          subtitle: onCodeStage
+                              ? s.smsCodeHint
+                              : s.loginSubtitle,
+                          children: [
+                            if (onCodeStage)
+                              _CodeField(
+                                controller: _code,
+                                label: s.smsCode,
+                                errorMessage:
+                                    auth.verifyError ??
+                                    (auth.codeRejected ? s.codeInvalid : null),
+                              )
+                            else ...[
+                              // Asked once, here, rather than on its own step —
+                              // this is the only screen a first-time customer
+                              // sees before they are signed in.
+                              _NameField(
+                                controller: _name,
+                                label: s.nameLabel,
+                                hint: s.nameHint,
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 16),
+                              _PhoneField(
+                                controller: _phone,
+                                label: s.phoneNumber,
+                              ),
+                            ],
+                            const SizedBox(height: 22),
+                            AppButton(
+                              label: onCodeStage ? s.verify : s.requestCode,
+                              busy: auth.busy,
+                              onPressed: onCodeStage
+                                  ? (_isValidOtpLength
+                                        ? () => _verify(auth)
+                                        : null)
+                                  : (_phoneValid && _nameValid
+                                        ? () => context
+                                              .read<AuthProvider>()
+                                              .requestCode(
+                                                '+993${_phone.text}',
+                                                name: _name.text,
+                                              )
+                                        : null),
+                            ),
+                            if (!onCodeStage && auth.requestError != null) ...[
+                              const SizedBox(height: 12),
                               Text(
-                                onCodeStage ? s.smsCodeHint : s.loginSubtitle,
-                                style: AppText.body.copyWith(
-                                  color: AppColors.greenMuted,
+                                auth.requestError!,
+                                textAlign: TextAlign.center,
+                                style: AppText.bodyMuted.copyWith(
+                                  color: AppColors.red,
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: onCodeStage
-                              ? _CodeField(
-                                  controller: _code,
-                                  label: s.smsCode,
-                                  errorMessage:
-                                      auth.verifyError ??
-                                      (auth.codeRejected
-                                          ? s.codeInvalid
-                                          : null),
-                                )
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Asked once, here, rather than on its own step —
-                                    // this is the only screen a first-time customer
-                                    // sees before they're signed in.
-                                    _NameField(
-                                      controller: _name,
-                                      label: s.nameLabel,
-                                      hint: s.nameHint,
-                                    ),
-                                    const SizedBox(height: 18),
-                                    _PhoneField(
-                                      controller: _phone,
-                                      label: s.phoneNumber,
-                                    ),
-                                  ],
+                            if (AppConfig.useMockData) ...[
+                              const SizedBox(height: 12),
+                              Center(
+                                child: Text(
+                                  s.demoHint,
+                                  style: AppText.bodyMuted.copyWith(
+                                    color: AppColors.textMuted,
+                                  ),
                                 ),
-                        ),
-                        const SizedBox(height: 20),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: AppButton(
-                            label: onCodeStage ? s.verify : s.requestCode,
-                            busy: auth.busy,
-                            onPressed: onCodeStage
-                                ? (_isValidOtpLength
-                                      ? () => _verify(auth)
-                                      : null)
-                                : (_phoneValid && _nameValid
-                                      ? () => context
-                                            .read<AuthProvider>()
-                                            .requestCode(
-                                              '+993${_phone.text}',
-                                              name: _name.text,
-                                            )
-                                      : null),
-                          ),
-                        ),
-                        if (!onCodeStage && auth.requestError != null) ...[
-                          const SizedBox(height: 12),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
-                              auth.requestError!,
-                              textAlign: TextAlign.center,
-                              style: AppText.bodyMuted.copyWith(
-                                color: AppColors.orange,
                               ),
-                            ),
-                          ),
-                        ],
-                        if (AppConfig.useMockData) ...[
-                          const SizedBox(height: 14),
-                          Center(
-                            child: Text(
-                              s.demoHint,
-                              style: AppText.bodyMuted.copyWith(
-                                color: AppColors.greenMuted,
-                              ),
-                            ),
-                          ),
-                        ],
-                        const Spacer(flex: 2),
+                            ],
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -263,7 +266,7 @@ class _FieldLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8, left: 4),
       child: Text(
         text,
-        style: AppText.label.copyWith(color: AppColors.greenMuted),
+        style: AppText.label.copyWith(color: AppColors.textSecondary),
       ),
     );
   }
@@ -465,6 +468,83 @@ class _LanguageSwitch extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// The sheet every readable thing sits on.
+///
+/// Before this the fields and copy floated straight on the artwork, which
+/// works only as long as nobody changes the picture. A solid card makes the
+/// background a free choice: the only contrast that matters is between the
+/// card and its own contents.
+class _AuthCard extends StatelessWidget {
+  const _AuthCard({
+    required this.title,
+    required this.subtitle,
+    required this.children,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.cream,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        boxShadow: [
+          BoxShadow(color: Color(0x33000000), blurRadius: 24, offset: Offset(0, -6)),
+        ],
+      ),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        28,
+        24,
+        24 + MediaQuery.paddingOf(context).bottom,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: AppText.h1.copyWith(
+              color: AppColors.textPrimary,
+              fontSize: 28,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: AppText.body.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 22),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+/// Round control that stays legible wherever the artwork happens to be light.
+class _GlassButton extends StatelessWidget {
+  const _GlassButton({required this.child, required this.onTap});
+
+  final Widget child;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0x33000000),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(padding: const EdgeInsets.all(11), child: child),
+      ),
     );
   }
 }

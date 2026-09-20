@@ -13,7 +13,9 @@ import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/services/connectivity_service.dart';
+import '../../core/widgets/app_snack_bar.dart';
 import '../../core/widgets/dish_grid.dart';
+import '../../core/widgets/responsive.dart';
 import '../../core/widgets/dish_thumbnail.dart';
 import '../auth/auth_provider.dart';
 import '../auth/login_screen.dart';
@@ -87,12 +89,32 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
       return;
     }
-    final address = await Navigator.of(context).push<DeliveryAddress>(MaterialPageRoute(builder: (_) => const AddressPickerScreen()));
+    // Harita kullanicinin mevcut adresi uzerinde acilsin: cogu zaman amac
+    // bastan bir yer secmek degil, o adresi biraz duzeltmek. Adres yoksa
+    // ekran kendi GPS'e gidiyor.
+    final current = context.read<AddressProvider>().address;
+    final address = await Navigator.of(context).push<DeliveryAddress>(
+      MaterialPageRoute(builder: (_) => AddressPickerScreen(initial: current)),
+    );
     if (address != null && mounted) {
       // Anything picked on the map is a real address the customer wants
       // to use again, not a one-off — save it rather than only holding it
       // in memory for this session.
-      await context.read<AddressProvider>().addNew(address);
+      try {
+        await context.read<AddressProvider>().addNew(address);
+      } catch (_) {
+        // The address is already active for this session; only the address
+        // book missed out. Without this the rejection escaped as an
+        // unhandled exception from a button handler, which in release just
+        // looks like the app freezing on the map.
+        if (!mounted) return;
+        AppSnackBar.show(
+          context,
+          message: context.sr.addressNotSaved,
+          kind: AppSnackKind.error,
+          icon: AppIcons.location,
+        );
+      }
     }
   }
 
@@ -147,7 +169,16 @@ class _HomeScreenState extends State<HomeScreen> {
                               padding: const EdgeInsets.only(top: 8),
                               child: Column(
                                 children: [
-                                  if (banners.isNotEmpty) BannerCarousel(banners: banners),
+                                  if (banners.isNotEmpty)
+                                    BannerCarousel(
+                                      banners: banners,
+                                      // A banner is a picture, so it should
+                                      // grow with the glass rather than sit
+                                      // as a phone-sized strip on a tablet.
+                                      height: Responsive.isCompact(context)
+                                          ? 240
+                                          : 340,
+                                    ),
                                   const SizedBox(height: 6),
                                   _MenuHeading(title: s.sections, allLabel: s.all, selectedCategory: _category, onShowAll: () => setState(() => _category = null)),
                                   _CategoryChips(
@@ -252,9 +283,15 @@ class _HomeCategoryShelf extends StatelessWidget {
   /// first paint, which is what a scroll builds.
   final bool animate;
 
-  /// Three rows of two — enough for the shelf to read as a section worth
-  /// opening without laying out a category's whole menu on the home tab.
-  static const _previewCount = 6;
+  /// Enough for the shelf to read as a section worth opening, without laying
+  /// out a category's whole menu on the home tab.
+  ///
+  /// Tied to the column count so a shelf always ends on a full row: six cards
+  /// across four columns left a row of two with two gaps beside it.
+  static int _previewCount(BuildContext context) {
+    final columns = Responsive.gridColumns(context);
+    return columns <= 2 ? 6 : columns * 2;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -285,7 +322,10 @@ class _HomeCategoryShelf extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(category.name, style: AppText.h2.copyWith(fontSize: 19)),
+                        // A step lighter than a screen heading: a shelf title
+                        // repeats down the whole feed, and at full bold every
+                        // one of them competes with the dish cards under it.
+                        Text(category.name, style: AppText.h2.copyWith(fontSize: 19, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 3),
                         Text(strings.dishesCount(dishes.length), style: AppText.bodyMuted.copyWith(fontSize: 12)),
                       ],
@@ -302,7 +342,7 @@ class _HomeCategoryShelf extends StatelessWidget {
           // A preview, not the category. Tapping the header row above opens
           // the full list, and the count next to the name already says how
           // much more there is.
-          DishGrid(dishes: dishes, strings: strings, onToggleFavorite: onToggleFavorite, maxItems: _previewCount, animate: animate),
+          DishGrid(dishes: dishes, strings: strings, onToggleFavorite: onToggleFavorite, maxItems: _previewCount(context), animate: animate),
         ],
       ),
     );
@@ -460,15 +500,76 @@ class _CategoryChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 60,
+    final compact = Responsive.isCompact(context);
+    // The chips keep a phone's proportions on a phone; on a tablet both the
+    // row and the label grow, or they read as a strip of fine print under a
+    // very large banner.
+    final chipHeight = compact ? 44.0 : 50.0;
+    const gap = 8.0;
 
-      child: ListView(
+    // One row on a phone, two on a tablet.
+    //
+    // The second row exists to use width a tablet has and a phone does not.
+    // On a phone it only costs height: the labels here are long Turkmen
+    // category names, so a pair of stacked chips pushes the dish grid an
+    // extra 50-odd pixels down the screen while showing the same handful of
+    // categories the customer would reach by flicking sideways anyway.
+    final rows = compact ? 1 : 2;
+
+    // Filled top-then-bottom in columns rather than wrapped, so the whole
+    // thing stays one horizontal scroll — the chips read as a single list,
+    // just a denser one where there is room for it.
+    final columns = <List<DishCategory>>[];
+    for (var i = 0; i < categories.length; i += rows) {
+      final end = i + rows;
+      columns.add(
+        categories.sublist(i, end > categories.length ? categories.length : end),
+      );
+    }
+
+    return SizedBox(
+      height: chipHeight * rows + gap * (rows - 1) + 16,
+      child: ListView.builder(
         padding: const EdgeInsets.only(top: 6, bottom: 10),
         scrollDirection: Axis.horizontal,
-        children: [
-          for (final category in categories) ...[const SizedBox(width: 8), _Chip(label: category.name, active: selected == category.id, onTap: () => onSelect(category.id))],
-        ],
+        itemCount: columns.length,
+        itemBuilder: (context, index) {
+          final pair = columns[index];
+          return Padding(
+            padding: const EdgeInsets.only(left: gap),
+            // A horizontal list hands its items unbounded width, and
+            // `stretch` against an unbounded constraint has nothing to
+            // stretch to — it left the render tree recomputing parent data
+            // during the semantics pass, which is the
+            // `!semantics.parentDataDirty` assertion. IntrinsicWidth gives
+            // the column the width of its wider chip first, so `stretch`
+            // then means something.
+            child: IntrinsicWidth(
+              child: Column(
+                // Both chips in a column share the wider one's width, so the
+                // two rows line up instead of stepping in and out.
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var row = 0; row < rows; row++) ...[
+                    if (row > 0) const SizedBox(height: gap),
+                    SizedBox(
+                      height: chipHeight,
+                      // The last column can be short of a full set; an empty
+                      // box holds the gap so the row above keeps its height.
+                      child: row < pair.length
+                          ? _Chip(
+                              label: pair[row].name,
+                              active: selected == pair[row].id,
+                              onTap: () => onSelect(pair[row].id),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -502,7 +603,11 @@ class _Chip extends StatelessWidget {
               padding: const EdgeInsets.only(left: 16, right: 16),
               child: Text(
                 label,
-                style: AppText.chip.copyWith(color: active ? AppColors.white : AppColors.textPrimary, fontWeight: active ? FontWeight.w700 : FontWeight.w500),
+                style: AppText.chip.copyWith(
+                  color: active ? AppColors.white : AppColors.textPrimary,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: Responsive.isCompact(context) ? null : 15,
+                ),
               ),
             ),
           ),

@@ -6,12 +6,7 @@ import '../../core/theme/app_icons.dart';
 
 /// One tab's icon, label, and optional badge count (e.g. cart item count).
 class NavBarItemData {
-  const NavBarItemData({
-    required this.icon,
-    required this.label,
-    this.badgeCount = 0,
-    this.iconKey,
-  });
+  const NavBarItemData({required this.icon, required this.label, this.badgeCount = 0, this.iconKey});
 
   final HugeIconData icon;
   final String label;
@@ -27,12 +22,7 @@ class NavBarItemData {
 /// between tabs on selection, the active icon pops with a small bounce, and
 /// cart badges scale in — no extra package, just implicit Flutter animations.
 class AnimatedBottomNavBar extends StatelessWidget {
-  const AnimatedBottomNavBar({
-    super.key,
-    required this.currentIndex,
-    required this.items,
-    required this.onTap,
-  });
+  const AnimatedBottomNavBar({super.key, required this.currentIndex, required this.items, required this.onTap});
 
   final int currentIndex;
   final List<NavBarItemData> items;
@@ -48,23 +38,14 @@ class AnimatedBottomNavBar extends StatelessWidget {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppColors.white,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 20,
-            offset: Offset(0, -6),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 20, offset: Offset(0, -6))],
       ),
       child: Padding(
         padding: EdgeInsets.only(bottom: bottomInset),
         child: SizedBox(
           height: _height,
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: _margin,
-              vertical: _margin,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: _margin, vertical: _margin),
             // Keep this independent of LayoutBuilder. Rebuilding the tab Row
             // from a LayoutBuilder callback can dirty its RenderFlex while it
             // is being laid out on some Flutter versions, particularly when a
@@ -88,11 +69,7 @@ class AnimatedBottomNavBar extends StatelessWidget {
                   children: [
                     for (var i = 0; i < items.length; i++)
                       Expanded(
-                        child: _NavItem(
-                          data: items[i],
-                          active: i == currentIndex,
-                          onTap: () => onTap(i),
-                        ),
+                        child: _NavItem(data: items[i], active: i == currentIndex, onTap: () => onTap(i)),
                       ),
                   ],
                 ),
@@ -119,20 +96,13 @@ class _Pill extends StatelessWidget {
       tween: Tween(begin: 0.85, end: 1),
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutBack,
-      builder: (context, scale, child) =>
-          Transform.scale(scale: scale, child: child),
+      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 2),
         decoration: BoxDecoration(
           color: AppColors.green,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.green.withValues(alpha: 0.28),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [BoxShadow(color: AppColors.green.withValues(alpha: 0.28), blurRadius: 14, offset: const Offset(0, 6))],
         ),
       ),
     );
@@ -140,11 +110,7 @@ class _Pill extends StatelessWidget {
 }
 
 class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.data,
-    required this.active,
-    required this.onTap,
-  });
+  const _NavItem({required this.data, required this.active, required this.onTap});
 
   final NavBarItemData data;
   final bool active;
@@ -169,33 +135,17 @@ class _NavItem extends StatelessWidget {
                 tween: Tween(begin: active ? 0.7 : 1, end: 1),
                 duration: const Duration(milliseconds: 380),
                 curve: Curves.elasticOut,
-                builder: (context, scale, child) =>
-                    Transform.scale(scale: scale, child: child),
+                builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
                 child: HugeIcon(icon: data.icon, color: color, size: 22),
               ),
-              if (data.badgeCount > 0)
-                Positioned(
-                  right: -8,
-                  top: -6,
-                  child: _Badge(count: data.badgeCount),
-                ),
+              if (data.badgeCount > 0) Positioned(right: -8, top: -6, child: _Badge(count: data.badgeCount)),
             ],
           ),
           const SizedBox(height: 4),
           AnimatedDefaultTextStyle(
             duration: const Duration(milliseconds: 250),
-            style: TextStyle(
-              fontFamily: 'Gilroy',
-              fontSize: 11,
-              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-              color: color,
-              height: 1.3,
-            ),
-            child: Text(
-              data.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            style: TextStyle(fontFamily: 'Gilroy', fontSize: 11, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: color, height: 1.3),
+            child: Text(data.label, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -215,25 +165,15 @@ class _Badge extends StatelessWidget {
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 300),
       curve: Curves.elasticOut,
-      builder: (context, scale, child) =>
-          Transform.scale(scale: scale, child: child),
+      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
         constraints: const BoxConstraints(minWidth: 16),
-        decoration: BoxDecoration(
-          color: AppColors.orange,
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: BoxDecoration(color: AppColors.orange, borderRadius: BorderRadius.circular(8)),
         child: Text(
           '$count',
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontFamily: 'Gilroy',
-            color: AppColors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            height: 1.3,
-          ),
+          style: const TextStyle(fontFamily: 'Gilroy', color: AppColors.white, fontSize: 10, fontWeight: FontWeight.w700, height: 1.3),
         ),
       ),
     );
