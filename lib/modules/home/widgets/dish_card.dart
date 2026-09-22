@@ -205,7 +205,7 @@ class _QuickAdd extends StatelessWidget {
         width: _addWidth,
         height: _height,
         child: Material(
-          color: AppColors.orange,
+          color: AppColors.brand,
           borderRadius: BorderRadius.circular(_radius),
           clipBehavior: Clip.antiAlias,
           child: _AddButton(onTap: onOpenDetail),
@@ -234,15 +234,15 @@ class _QuickAdd extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: inCart
-                ? AppColors.orange.withValues(alpha: 0.14)
-                : AppColors.orange.withValues(alpha: 0.38),
+                ? AppColors.brand.withValues(alpha: 0.18)
+                : AppColors.brand.withValues(alpha: 0.45),
             blurRadius: inCart ? 8 : 14,
             offset: Offset(0, inCart ? 3 : 5),
           ),
         ],
       ),
       child: Material(
-        color: inCart ? AppColors.orangeSoft : AppColors.orange,
+        color: inCart ? AppColors.goldSoft : AppColors.brand,
         borderRadius: BorderRadius.circular(_radius),
         clipBehavior: Clip.antiAlias,
         child: AnimatedSwitcher(
@@ -297,7 +297,7 @@ class _AddButton extends StatelessWidget {
         child: Center(
           child: HugeIcon(
             icon: AppIcons.plus,
-            color: AppColors.white,
+            color: AppColors.onBrand,
             size: 21,
           ),
         ),
@@ -345,7 +345,7 @@ class _Stepper extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: AppText.button.copyWith(
                   fontSize: 14,
-                  color: AppColors.orange,
+                  color: AppColors.onBrand,
                 ),
               ),
             ),
@@ -371,7 +371,7 @@ class _StepTap extends StatelessWidget {
         width: 26,
         height: _QuickAdd._height,
         child: Center(
-          child: HugeIcon(icon: icon, color: AppColors.orange, size: 16),
+          child: HugeIcon(icon: icon, color: AppColors.onBrand, size: 16),
         ),
       ),
     );

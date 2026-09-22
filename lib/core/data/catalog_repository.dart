@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 
 import '../constants/app_config.dart';
+import '../models/cafe.dart';
 import '../models/dish.dart';
 import '../network/api_client.dart';
 import 'mock/mock_data.dart';
@@ -14,12 +15,46 @@ class CatalogRepository {
 
   final ApiClient _api;
 
-  Future<List<DishCategory>> categories() async {
+  /// The cafes a customer can browse, already ordered the way they should be
+  /// listed. Only active cafes come back.
+  Future<List<Cafe>> cafes() async {
     if (AppConfig.useMockData) {
       await _demoDelay();
-      return MockData.categories;
+      return MockData.cafes;
     }
-    final response = await _api.get(ApiPaths.categories);
+    final response = await _api.get(ApiPaths.cafes);
+    final cafes = (response.data as List<dynamic>).map((e) {
+      final json = e as Map<String, dynamic>;
+      return Cafe(
+        id: json['id'].toString(),
+        name: json['name'] as String,
+        description: json['description'] as String?,
+        imageUrl: _absoluteImageUrl(json['imageUrl']),
+        sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+      );
+    }).toList();
+    // The contract asks for sortOrder then name. Sorting here rather than
+    // trusting the response keeps the selector stable even if a future
+    // endpoint returns them unordered.
+    cafes.sort((a, b) {
+      final order = a.sortOrder.compareTo(b.sortOrder);
+      return order != 0 ? order : a.name.compareTo(b.name);
+    });
+    return cafes;
+  }
+
+  /// [cafeId] narrows the menu to one cafe. Omitting it is the legacy
+  /// behaviour — the whole combined catalogue — which older releases still
+  /// depend on.
+  Future<List<DishCategory>> categories({String? cafeId}) async {
+    if (AppConfig.useMockData) {
+      await _demoDelay();
+      return MockData.categoriesForCafe(cafeId);
+    }
+    final response = await _api.get(
+      ApiPaths.categories,
+      query: cafeId == null ? null : {'cafeId': cafeId},
+    );
     return (response.data as List<dynamic>).map((e) {
       final json = e as Map<String, dynamic>;
       return DishCategory(
@@ -37,25 +72,33 @@ class CatalogRepository {
   /// wait for all of them, which meant 30-odd round trips before the home
   /// screen could paint anything; a phone only opens a handful of connections
   /// at a time, so those requests queued up in waves.
-  Future<List<Dish>> dishes() async {
+  Future<List<Dish>> dishes({String? cafeId}) async {
     if (AppConfig.useMockData) {
       await _demoDelay();
-      return MockData.dishes();
+      return MockData.dishesForCafe(cafeId);
     }
-    final response = await _api.get(ApiPaths.products);
+    final response = await _api.get(
+      ApiPaths.products,
+      query: cafeId == null ? null : {'cafeId': cafeId},
+    );
     return _parseDishes(response.data);
   }
 
-  Future<List<Dish>> dishesForCategory(String categoryId) async {
+  /// The two filters compose: a category belonging to another cafe returns
+  /// nothing rather than leaking that cafe's products.
+  Future<List<Dish>> dishesForCategory(
+    String categoryId, {
+    String? cafeId,
+  }) async {
     if (AppConfig.useMockData) {
       await _demoDelay();
-      return MockData.dishes()
+      return MockData.dishesForCafe(cafeId)
           .where((dish) => dish.categoryId == categoryId)
           .toList();
     }
     final response = await _api.get(
       ApiPaths.products,
-      query: {'categoryId': categoryId},
+      query: {'categoryId': categoryId, 'cafeId': ?cafeId},
     );
     return _parseDishes(response.data);
   }

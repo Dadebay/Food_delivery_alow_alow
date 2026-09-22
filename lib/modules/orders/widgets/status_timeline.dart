@@ -102,7 +102,7 @@ class _TimelineRow extends StatelessWidget {
                   child: Container(
                     width: 2,
                     margin: const EdgeInsets.symmetric(vertical: 2),
-                    color: reached ? AppColors.greenLight : AppColors.divider,
+                    color: reached ? AppColors.brandLight : AppColors.divider,
                   ),
                 ),
             ],
@@ -149,7 +149,7 @@ class _Dot extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = current
         ? AppColors.orange
-        : (reached ? AppColors.greenLight : AppColors.divider);
+        : (reached ? AppColors.brandLight : AppColors.divider);
 
     return Container(
       width: 26,
@@ -174,7 +174,7 @@ class _Dot extends StatelessWidget {
           ? const Center(
               child: HugeIcon(
                 icon: AppIcons.check,
-                color: AppColors.greenLight,
+                color: AppColors.brandLight,
                 size: 14,
               ),
             )

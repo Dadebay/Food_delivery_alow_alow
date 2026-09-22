@@ -108,7 +108,7 @@ class _PriceBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(color: AppColors.green.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: AppColors.brand.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14)),
       child: Text(text, style: AppText.figure.copyWith(fontSize: 15)),
     );
   }
@@ -215,7 +215,7 @@ class _ReorderButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.green.withValues(alpha: 0.08),
+      color: AppColors.brand.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
@@ -225,9 +225,9 @@ class _ReorderButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const HugeIcon(icon: AppIcons.cart, color: AppColors.green, size: 15),
+              const HugeIcon(icon: AppIcons.cart, color: AppColors.onBrand, size: 15),
               const SizedBox(width: 6),
-              Text(label, style: AppText.chip.copyWith(color: AppColors.green)),
+              Text(label, style: AppText.chip.copyWith(color: AppColors.onBrand)),
             ],
           ),
         ),

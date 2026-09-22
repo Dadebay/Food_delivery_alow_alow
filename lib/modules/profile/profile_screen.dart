@@ -58,12 +58,12 @@ class ProfileScreen extends StatelessWidget {
               style: IconButton.styleFrom(
                 backgroundColor: AppColors.white.withValues(alpha: 0.14),
                 shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: AppColors.greenMuted),
+                  side: const BorderSide(color: AppColors.brandMuted),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.all(10),
               ),
-              icon: const HugeIcon(icon: AppIcons.call, color: AppColors.white, size: 20),
+              icon: const HugeIcon(icon: AppIcons.call, color: AppColors.onBrand, size: 20),
             ),
           ),
         ],
@@ -267,9 +267,9 @@ class _AboutAppDialog extends StatelessWidget {
               height: 64,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: AppColors.green,
+                color: AppColors.brand,
                 borderRadius: BorderRadius.circular(18),
-                boxShadow: [BoxShadow(color: AppColors.green.withValues(alpha: 0.28), blurRadius: 16, offset: const Offset(0, 6))],
+                boxShadow: [BoxShadow(color: AppColors.brand.withValues(alpha: 0.28), blurRadius: 16, offset: const Offset(0, 6))],
               ),
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -432,7 +432,7 @@ class _SupportAction extends StatelessWidget {
                 height: 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(color: AppColors.white, borderRadius: BorderRadius.circular(12)),
-                child: HugeIcon(icon: icon, color: AppColors.green, size: 19),
+                child: HugeIcon(icon: icon, color: AppColors.onBrand, size: 19),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -537,7 +537,7 @@ class _IdentityCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.green.withValues(alpha: 0.16), width: 1.2),
+        border: Border.all(color: AppColors.brand.withValues(alpha: 0.16), width: 1.2),
         boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 14, offset: const Offset(0, 6))],
       ),
       child: Row(
@@ -590,8 +590,8 @@ class _IdentityCard extends StatelessWidget {
             customBorder: const CircleBorder(),
             child: Container(
               padding: const EdgeInsets.all(9),
-              decoration: BoxDecoration(color: AppColors.green.withValues(alpha: 0.08), shape: BoxShape.circle),
-              child: const HugeIcon(icon: AppIcons.edit, color: AppColors.green, size: 17),
+              decoration: BoxDecoration(color: AppColors.brand.withValues(alpha: 0.08), shape: BoxShape.circle),
+              child: const HugeIcon(icon: AppIcons.edit, color: AppColors.onBrand, size: 17),
             ),
           ),
         ],
@@ -613,7 +613,7 @@ class _SignInPrompt extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.green.withValues(alpha: 0.16), width: 1.2),
+        border: Border.all(color: AppColors.brand.withValues(alpha: 0.16), width: 1.2),
         boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 14, offset: const Offset(0, 6))],
       ),
       child: Column(
@@ -661,7 +661,7 @@ class _Tile extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.green.withValues(alpha: 0.12), width: 1.1),
+          border: Border.all(color: AppColors.brand.withValues(alpha: 0.12), width: 1.1),
           boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 12, offset: const Offset(0, 4))],
         ),
         child: Material(
@@ -678,8 +678,8 @@ class _Tile extends StatelessWidget {
                     width: 42,
                     height: 42,
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: AppColors.green.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(13)),
-                    child: HugeIcon(icon: icon, color: AppColors.green, size: 20),
+                    decoration: BoxDecoration(color: AppColors.brand.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(13)),
+                    child: HugeIcon(icon: icon, color: AppColors.onBrand, size: 20),
                   ),
                   const SizedBox(width: 14),
                   Expanded(child: Text(title, style: AppText.body)),
@@ -711,10 +711,10 @@ class _LanguageOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.green : AppColors.white,
+      color: selected ? AppColors.brand : AppColors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: selected ? AppColors.green : AppColors.green.withValues(alpha: 0.18), width: 1.2),
+        side: BorderSide(color: selected ? AppColors.brand : AppColors.brand.withValues(alpha: 0.18), width: 1.2),
       ),
       child: InkWell(
         onTap: onTap,
@@ -729,9 +729,9 @@ class _LanguageOption extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: Text(strings.languageName, style: AppText.button.copyWith(fontSize: 15, color: selected ? AppColors.white : AppColors.textPrimary)),
+                child: Text(strings.languageName, style: AppText.button.copyWith(fontSize: 15, color: selected ? AppColors.onBrand : AppColors.textPrimary)),
               ),
-              if (selected) HugeIcon(icon: AppIcons.check, color: AppColors.white, size: 20),
+              if (selected) HugeIcon(icon: AppIcons.check, color: AppColors.onBrand, size: 20),
             ],
           ),
         ),

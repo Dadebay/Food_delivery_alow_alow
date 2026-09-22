@@ -279,7 +279,7 @@ class _MyLocationDot extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.greenLight,
+            color: AppColors.brandLight,
           ),
         ),
       ),
@@ -315,12 +315,12 @@ class _MyLocationButton extends StatelessWidget {
                     padding: EdgeInsets.all(2),
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppColors.green,
+                      color: AppColors.brand,
                     ),
                   )
                 : const HugeIcon(
                     icon: AppIcons.myLocation,
-                    color: AppColors.green,
+                    color: AppColors.brand,
                     size: 22,
                   ),
           ),

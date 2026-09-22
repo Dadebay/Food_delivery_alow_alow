@@ -22,6 +22,7 @@ import '../../core/widgets/dish_thumbnail.dart';
 import '../auth/auth_provider.dart';
 import '../auth/login_screen.dart';
 import '../cart/cart_provider.dart';
+import '../catalog/catalog_provider.dart';
 import '../orders/order_provider.dart';
 import '../orders/order_track_screen.dart';
 import '../shell/tab_switcher.dart';
@@ -310,10 +311,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_orderErrorMessage(error, s))));
+        _refreshCatalogAfterRejection(error);
       }
     } finally {
       if (mounted) setState(() => _placing = false);
     }
+  }
+
+  /// A server rejection is authoritative about what is still orderable.
+  ///
+  /// A cafe or a product can be hidden while the customer is browsing, and
+  /// the app must not argue with the server from cached screen state — so a
+  /// rejected order sends the catalogue back for a fresh read. Only a real
+  /// rejection counts: a lost connection says nothing about the menu, and
+  /// re-reading it on every flaky network is a needless round trip.
+  void _refreshCatalogAfterRejection(Object error) {
+    if (error is! OrderPlacementException) return;
+    unawaited(context.read<CatalogProvider>().refreshCatalog());
   }
 
   /// The backend rejects a bad/expired/exhausted promo code with a specific
@@ -394,7 +408,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         centerTitle: true,
         automaticallyImplyLeading: false,
         leading: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, color: AppColors.white),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, color: AppColors.onBrand),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -518,7 +532,7 @@ class _AddressCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SectionIcon(icon: AppIcons.location, color: AppColors.green),
+                _SectionIcon(icon: AppIcons.location, color: AppColors.onBrand),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -549,7 +563,7 @@ class _AddressCard extends StatelessWidget {
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (address != null) Text(strings.changeAddress, style: AppText.chip.copyWith(color: AppColors.green, fontSize: 12)),
+                    if (address != null) Text(strings.changeAddress, style: AppText.chip.copyWith(color: AppColors.onBrand, fontSize: 12)),
                     const SizedBox(height: 2),
                     const HugeIcon(icon: AppIcons.chevronRight, color: AppColors.textMuted, size: 18),
                   ],
@@ -683,14 +697,14 @@ class _OrderCommentFieldState extends State<_OrderCommentField> {
                   TextButton(
                     onPressed: _focusNode.unfocus,
                     style: TextButton.styleFrom(
-                      foregroundColor: AppColors.green,
+                      foregroundColor: AppColors.onBrand,
                       padding: const EdgeInsets.symmetric(horizontal: 18),
                     ),
                     child: Text(
                       widget.strings.keyboardDoneAction,
                       style: AppText.body.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: AppColors.green,
+                        color: AppColors.brand,
                       ),
                     ),
                   ),
@@ -732,7 +746,7 @@ class _OrderCommentFieldState extends State<_OrderCommentField> {
         children: [
           Row(
             children: [
-              _SectionIcon(icon: AppIcons.note, color: AppColors.green, size: 30),
+              _SectionIcon(icon: AppIcons.note, color: AppColors.onBrand, size: 30),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(s.orderCommentLabel, style: AppText.body.copyWith(fontWeight: FontWeight.w600)),
@@ -755,7 +769,7 @@ class _OrderCommentFieldState extends State<_OrderCommentField> {
             maxLength: 500,
             textCapitalization: TextCapitalization.sentences,
             style: AppText.body,
-            cursorColor: AppColors.green,
+            cursorColor: AppColors.brand,
             decoration: InputDecoration(
               isDense: true,
               filled: true,
@@ -763,7 +777,7 @@ class _OrderCommentFieldState extends State<_OrderCommentField> {
               contentPadding: const EdgeInsets.all(14),
               border: _border(AppColors.divider, width: 1.1),
               enabledBorder: _border(AppColors.divider, width: 1.1),
-              focusedBorder: _border(AppColors.green),
+              focusedBorder: _border(AppColors.brand),
               hintText: s.orderCommentHint,
               hintStyle: AppText.bodyMuted,
               counterStyle: AppText.bodyMuted.copyWith(fontSize: 11),
@@ -907,14 +921,14 @@ class _PromoFieldState extends State<_PromoField> {
             if (widget.loading)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
-                child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green)),
+                child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onBrand)),
               )
             else
               ValueListenableBuilder<TextEditingValue>(
                 valueListenable: widget.controller,
                 builder: (context, value, _) => TextButton(
                   onPressed: value.text.trim().isEmpty ? null : widget.onApply,
-                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), foregroundColor: AppColors.green, disabledForegroundColor: AppColors.textMuted),
+                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), foregroundColor: AppColors.onBrand, disabledForegroundColor: AppColors.textMuted),
                   child: Text(s.promoApply, style: AppText.chip.copyWith(fontWeight: FontWeight.w700)),
                 ),
               ),
@@ -935,17 +949,17 @@ class _PromoFieldState extends State<_PromoField> {
     return Row(
       key: const ValueKey('applied'),
       children: [
-        _SectionIcon(icon: AppIcons.checkCircle, color: AppColors.green, size: 30),
+        _SectionIcon(icon: AppIcons.checkCircle, color: AppColors.onBrand, size: 30),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             widget.controller.text.trim().toUpperCase(),
-            style: AppText.body.copyWith(fontWeight: FontWeight.w700, color: AppColors.green),
+            style: AppText.body.copyWith(fontWeight: FontWeight.w700, color: AppColors.brand),
           ),
         ),
         Text(
           '-${Fmt.money(widget.discount)}',
-          style: AppText.body.copyWith(fontWeight: FontWeight.w700, color: AppColors.green),
+          style: AppText.body.copyWith(fontWeight: FontWeight.w700, color: AppColors.brand),
         ),
         const SizedBox(width: 8),
         InkWell(
@@ -999,13 +1013,13 @@ class _PaymentOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
-          color: selected ? AppColors.green.withValues(alpha: 0.08) : AppColors.cream,
+          color: selected ? AppColors.brand.withValues(alpha: 0.08) : AppColors.cream,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? AppColors.green : Colors.transparent, width: 1.5),
+          border: Border.all(color: selected ? AppColors.brand : Colors.transparent, width: 1.5),
         ),
         child: Row(
           children: [
-            HugeIcon(icon: icon, color: selected ? AppColors.green : AppColors.textSecondary, size: 20),
+            HugeIcon(icon: icon, color: selected ? AppColors.onBrand : AppColors.textSecondary, size: 20),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -1020,7 +1034,7 @@ class _PaymentOption extends StatelessWidget {
                 child: Text(badge!, style: AppText.chip.copyWith(fontSize: 11, color: AppColors.textMuted)),
               )
             else if (selected)
-              const HugeIcon(icon: AppIcons.checkCircle, color: AppColors.green, size: 20),
+              const HugeIcon(icon: AppIcons.checkCircle, color: AppColors.onBrand, size: 20),
           ],
         ),
       ),
@@ -1077,7 +1091,7 @@ class _TotalsCard extends StatelessWidget {
           const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(color: AppColors.green.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(14)),
+            decoration: BoxDecoration(color: AppColors.brand.withValues(alpha: 0.06), borderRadius: BorderRadius.circular(14)),
             // Toplam da bekletilmiyor: sunucu cevabi yokken sepet toplami ile
             // yedek teslimat ucretinden hesaplaniyor. Onceden burada sonsuza
             // kadar donen bir gosterge vardi.
@@ -1150,7 +1164,7 @@ class _BottomBar extends StatelessWidget {
                   if (quote != null)
                     Text(Fmt.money(total), style: AppText.h2.copyWith(fontSize: 19))
                   else
-                    const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green)),
+                    const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onBrand)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -1192,8 +1206,8 @@ class _SignInRequiredDialog extends StatelessWidget {
               width: 60,
               height: 60,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppColors.green.withValues(alpha: 0.1), shape: BoxShape.circle),
-              child: HugeIcon(icon: AppIcons.user, color: AppColors.green, size: 26),
+              decoration: BoxDecoration(color: AppColors.brand.withValues(alpha: 0.1), shape: BoxShape.circle),
+              child: HugeIcon(icon: AppIcons.user, color: AppColors.onBrand, size: 26),
             ),
             const SizedBox(height: 18),
             Text(s.loginTitle, style: AppText.h2, textAlign: TextAlign.center),
@@ -1279,7 +1293,7 @@ class _OrderAcceptedDialogState extends State<_OrderAcceptedDialog> {
                     children: [
                       const DecoratedBox(
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.green, AppColors.greenLight]),
+                          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.brand, AppColors.brandLight]),
                         ),
                         child: SizedBox.expand(),
                       ),
@@ -1306,7 +1320,7 @@ class _OrderAcceptedDialogState extends State<_OrderAcceptedDialog> {
                             shape: BoxShape.circle,
                             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
                           ),
-                          child: const Icon(Icons.check_rounded, color: AppColors.green, size: 28),
+                          child: const Icon(Icons.check_rounded, color: AppColors.onBrand, size: 28),
                         ),
                       ),
                     ],
@@ -1323,7 +1337,7 @@ class _OrderAcceptedDialogState extends State<_OrderAcceptedDialog> {
                       const SizedBox(height: 18),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(99),
-                        child: const LinearProgressIndicator(minHeight: 4, color: AppColors.green, backgroundColor: AppColors.cream),
+                        child: const LinearProgressIndicator(minHeight: 4, color: AppColors.brand, backgroundColor: AppColors.cream),
                       ),
                     ],
                   ),

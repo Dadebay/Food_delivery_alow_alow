@@ -74,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final onCodeStage = auth.stage == AuthStage.code;
 
     return Scaffold(
-      backgroundColor: AppColors.green,
+      backgroundColor: AppColors.brand,
       body: Stack(
         children: [
           Positioned.fill(
@@ -130,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           Navigator.of(context).maybePop(false),
                                 child: const HugeIcon(
                                   icon: AppIcons.back,
-                                  color: AppColors.white,
+                                  color: AppColors.onBrand,
                                   size: 22,
                                 ),
                               ),
@@ -457,7 +457,7 @@ class _LanguageSwitch extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: strings.languageCode == current
                       ? AppColors.orange
-                      : AppColors.greenSurface,
+                      : AppColors.brandSurface,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(

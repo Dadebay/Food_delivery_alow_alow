@@ -59,19 +59,19 @@ enum OrderStatus {
 
   Color get color => switch (this) {
     OrderStatus.placed => AppColors.textMuted,
-    OrderStatus.accepted => AppColors.gold,
-    OrderStatus.cooked => AppColors.greenLight,
+    OrderStatus.accepted => AppColors.goldInk,
+    OrderStatus.cooked => AppColors.success,
     OrderStatus.onTheWay => AppColors.orange,
-    OrderStatus.delivered => AppColors.greenLight,
+    OrderStatus.delivered => AppColors.success,
     OrderStatus.cancelled => AppColors.red,
   };
 
   Color get softColor => switch (this) {
     OrderStatus.placed => const Color(0xFFEDEFEE),
     OrderStatus.accepted => AppColors.goldSoft,
-    OrderStatus.cooked => const Color(0xFFE3F0E9),
+    OrderStatus.cooked => AppColors.successSoft,
     OrderStatus.onTheWay => AppColors.orangeSoft,
-    OrderStatus.delivered => const Color(0xFFE3F0E9),
+    OrderStatus.delivered => AppColors.successSoft,
     OrderStatus.cancelled => AppColors.redSoft,
   };
 

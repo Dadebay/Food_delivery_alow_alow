@@ -123,10 +123,10 @@ class _OrderTrackScreenState extends State<OrderTrackScreen> {
                   ),
                   const SizedBox(width: 10),
                   _Pill(
-                    color: AppColors.green,
+                    color: AppColors.brand,
                     child: Text(
                       s.orderNumber(order.number),
-                      style: AppText.chip.copyWith(color: AppColors.white),
+                      style: AppText.chip.copyWith(color: AppColors.onBrand),
                     ),
                   ),
                   const Spacer(),
@@ -141,7 +141,7 @@ class _OrderTrackScreenState extends State<OrderTrackScreen> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: online
-                                ? AppColors.greenLight
+                                ? AppColors.brandLight
                                 : AppColors.red,
                           ),
                         ),
@@ -230,7 +230,7 @@ class _MapBackButton extends StatelessWidget {
         child: Center(
           child: HugeIcon(
             icon: AppIcons.back,
-            color: AppColors.green,
+            color: AppColors.brand,
             size: 21,
           ),
         ),
@@ -308,7 +308,7 @@ class _BottomSheetState extends State<_BottomSheet> {
                     vertical: 14,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.green,
+                    color: AppColors.brand,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
@@ -320,7 +320,7 @@ class _BottomSheetState extends State<_BottomSheet> {
                             Text(
                               s.deliveryTimeLabel,
                               style: AppText.label.copyWith(
-                                color: AppColors.greenMuted,
+                                color: AppColors.brandMuted,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -340,7 +340,7 @@ class _BottomSheetState extends State<_BottomSheet> {
                           Text(
                             s.distanceLabel,
                             style: AppText.label.copyWith(
-                              color: AppColors.greenMuted,
+                              color: AppColors.brandMuted,
                             ),
                           ),
                           const SizedBox(height: 4),

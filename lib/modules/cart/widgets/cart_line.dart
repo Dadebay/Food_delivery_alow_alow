@@ -215,7 +215,7 @@ class _StepTap extends StatelessWidget {
         width: 40,
         height: _QuantityStepper._height,
         child: Center(
-          child: HugeIcon(icon: icon, color: AppColors.green, size: 18),
+          child: HugeIcon(icon: icon, color: AppColors.onBrand, size: 18),
         ),
       ),
     );

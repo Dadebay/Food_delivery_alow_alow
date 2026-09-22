@@ -74,7 +74,7 @@ class CourierContactRow extends StatelessWidget {
           ),
         ),
         Material(
-          color: AppColors.greenLight,
+          color: AppColors.brandLight,
           shape: const CircleBorder(),
           child: InkWell(
             onTap: () => onCall(order.courierPhone!),

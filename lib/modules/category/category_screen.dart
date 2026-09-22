@@ -70,9 +70,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
   // Saturated brand tones — not the pale *Soft variants — so the white
   // overlay text stays legible even on a category with no dish photo yet.
   static const _palette = [
-    AppColors.green,
+    AppColors.brand,
     AppColors.orange,
-    AppColors.greenLight,
+    AppColors.brandLight,
     AppColors.gold,
   ];
 
@@ -95,14 +95,14 @@ class _CategoryScreenState extends State<CategoryScreen> {
               style: IconButton.styleFrom(
                 backgroundColor: AppColors.white.withValues(alpha: 0.14),
                 shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: AppColors.greenMuted),
+                  side: const BorderSide(color: AppColors.brandMuted),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.all(10),
               ),
               icon: HugeIcon(
                 icon: _isGridView ? AppIcons.listView : AppIcons.category,
-                color: AppColors.white,
+                color: AppColors.onBrand,
                 size: 20,
               ),
             ),

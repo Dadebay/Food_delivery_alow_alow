@@ -15,11 +15,15 @@ class AppText {
   static const String wordmarkFamily = 'Qurova';
 
   /// Screen titles, dish name on its detail sheet.
+  ///
+  /// Ink rather than white: this style was written for the dark brand bar,
+  /// and that bar is yellow now. The few places that still sit on something
+  /// dark pass their own colour.
   static const TextStyle h1 = TextStyle(
     fontFamily: family,
     fontSize: 26,
     fontWeight: FontWeight.w700,
-    color: AppColors.white,
+    color: AppColors.onBrand,
     height: 1.15,
   );
 

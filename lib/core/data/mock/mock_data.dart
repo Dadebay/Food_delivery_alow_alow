@@ -1,5 +1,6 @@
 import 'package:latlong2/latlong.dart';
 
+import '../../models/cafe.dart';
 import '../../models/dish.dart';
 
 /// Demo catalogue — the exact dishes shown in the approved mock-up
@@ -35,6 +36,34 @@ class MockData {
     DishCategory(id: 'salads', name: 'Салаты'),
     DishCategory(id: 'drinks', name: 'Напитки'),
   ];
+
+  /// Demo mode's two cafes — the same pair the backend migration creates.
+  /// The app never hard-codes these names or ids anywhere else; this list
+  /// exists only so demo mode has something to render.
+  static const List<Cafe> cafes = [
+    Cafe(id: 'han-tagam', name: 'Han tagam', sortOrder: 0),
+    Cafe(id: 'panda', name: 'Panda', sortOrder: 1),
+  ];
+
+  /// Demo mode splits the single mock menu between the two cafes so the
+  /// selector visibly changes what is on screen. A null [cafeId] keeps the
+  /// legacy combined catalogue.
+  static const Map<String, List<String>> _cafeCategories = {
+    'han-tagam': ['plov', 'shashlyk', 'somsa', 'bread'],
+    'panda': ['salads', 'drinks'],
+  };
+
+  static List<DishCategory> categoriesForCafe(String? cafeId) {
+    if (cafeId == null) return categories;
+    final ids = _cafeCategories[cafeId] ?? const <String>[];
+    return categories.where((c) => ids.contains(c.id)).toList();
+  }
+
+  static List<Dish> dishesForCafe(String? cafeId) {
+    if (cafeId == null) return dishes();
+    final ids = _cafeCategories[cafeId] ?? const <String>[];
+    return dishes().where((d) => ids.contains(d.categoryId)).toList();
+  }
 
   static String _image(String id) => 'assets/images/dishes/$id.jpg';
 

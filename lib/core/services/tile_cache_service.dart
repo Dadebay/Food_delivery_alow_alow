@@ -22,6 +22,11 @@ class TileCacheService {
 
   static late final HiveCacheStore _store;
   static late final CachedTileProvider tileProvider;
+
+  /// The store the map draws from. Exposed so the pre-loader can write into
+  /// the same place the map reads, rather than keeping a second copy of every
+  /// tile that would double the disk cost and still leave the map grey.
+  static HiveCacheStore get store => _store;
   static bool _ready = false;
 
   static Future<void> init() async {

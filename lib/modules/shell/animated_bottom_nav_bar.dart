@@ -100,9 +100,9 @@ class _Pill extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 2),
         decoration: BoxDecoration(
-          color: AppColors.green,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [BoxShadow(color: AppColors.green.withValues(alpha: 0.28), blurRadius: 14, offset: const Offset(0, 6))],
+          color: AppColors.brand,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [BoxShadow(color: AppColors.brand.withValues(alpha: 0.28), blurRadius: 14, offset: const Offset(0, 6))],
         ),
       ),
     );
@@ -118,7 +118,9 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? AppColors.white : AppColors.textMuted;
+    // The active pill is brand yellow, so its icon and label take the ink —
+    // white on yellow is unreadable.
+    final color = active ? AppColors.onBrand : AppColors.textMuted;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,

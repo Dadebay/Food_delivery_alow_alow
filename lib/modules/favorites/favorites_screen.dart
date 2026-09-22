@@ -44,7 +44,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         leading: IconButton(
           icon: HugeIcon(
             icon: HugeIcons.strokeRoundedArrowLeft01,
-            color: AppColors.white,
+            color: AppColors.onBrand,
           ),
           onPressed: () => Navigator.of(context).pop(),
         ),

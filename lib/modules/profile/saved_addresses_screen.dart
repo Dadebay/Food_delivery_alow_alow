@@ -84,7 +84,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         leading: IconButton(
           icon: HugeIcon(
             icon: HugeIcons.strokeRoundedArrowLeft01,
-            color: AppColors.white,
+            color: AppColors.onBrand,
           ),
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -119,16 +119,16 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
           ? null
           : FloatingActionButton.extended(
               onPressed: _addAddress,
-              backgroundColor: AppColors.orange,
+              backgroundColor: AppColors.brand,
               icon: const HugeIcon(
                 icon: AppIcons.add,
-                color: AppColors.white,
+                color: AppColors.onBrand,
                 size: 20,
               ),
               label: Text(
                 s.addAddress,
                 style: AppText.button.copyWith(
-                  color: AppColors.white,
+                  color: AppColors.onBrand,
                   fontSize: 15,
                 ),
               ),
@@ -173,8 +173,8 @@ class _AddressCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: item.isActive
-              ? AppColors.green.withValues(alpha: 0.5)
-              : AppColors.green.withValues(alpha: 0.12),
+              ? AppColors.brand.withValues(alpha: 0.5)
+              : AppColors.brand.withValues(alpha: 0.12),
           width: item.isActive ? 1.6 : 1.1,
         ),
         boxShadow: [
@@ -201,12 +201,12 @@ class _AddressCard extends StatelessWidget {
                   height: 44,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: AppColors.green.withValues(alpha: 0.08),
+                    color: AppColors.brand.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(13),
                   ),
                   child: HugeIcon(
                     icon: _icon,
-                    color: AppColors.green,
+                    color: AppColors.onBrand,
                     size: 20,
                   ),
                 ),
@@ -274,17 +274,17 @@ class _ActiveBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.green,
+        color: AppColors.brand,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          HugeIcon(icon: AppIcons.check, color: AppColors.white, size: 11),
+          HugeIcon(icon: AppIcons.check, color: AppColors.onBrand, size: 11),
           const SizedBox(width: 3),
           Text(
             label,
-            style: AppText.chip.copyWith(color: AppColors.white, fontSize: 10),
+            style: AppText.chip.copyWith(color: AppColors.onBrand, fontSize: 10),
           ),
         ],
       ),

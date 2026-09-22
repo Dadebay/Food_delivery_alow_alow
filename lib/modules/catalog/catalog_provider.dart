@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/data/catalog_repository.dart';
+import '../../core/models/cafe.dart';
 import '../../core/models/dish.dart';
 
 /// The menu: categories, dishes, and which ones are favorited.
@@ -23,6 +24,9 @@ class CatalogProvider extends ChangeNotifier {
   final CatalogRepository _repository;
   final SharedPreferences _prefs;
 
+  List<Cafe> _cafes = const [];
+  String? _selectedCafeId;
+  bool _switchingCafe = false;
   List<DishCategory> _categories = const [];
   List<Dish> _dishes = const [];
   bool _loading = true;
@@ -31,6 +35,22 @@ class CatalogProvider extends ChangeNotifier {
   final Random _homeRandom = Random();
   List<DishCategory> _homeCategories = const [];
   Map<String, List<Dish>> _homeDishes = const {};
+
+  /// The cafes to show in the selector, already in the order they belong in.
+  List<Cafe> get cafes => _cafes;
+
+  /// True while a newly picked cafe's menu is loading.
+  ///
+  /// Kept apart from [loading] because the two want different screens: a
+  /// cold start may replace the whole page with a skeleton, but a cafe switch
+  /// must leave the selector in place — the customer has to see which cafe
+  /// they landed on, and be able to change their mind straight away.
+  bool get switchingCafe => _switchingCafe;
+
+  /// Which cafe's menu is on screen. Null only before the first load, or when
+  /// the backend returned no cafes at all — then the legacy combined
+  /// catalogue is shown instead.
+  String? get selectedCafeId => _selectedCafeId;
 
   List<DishCategory> get categories => _categories;
   List<Dish> get dishes => _dishes;
@@ -59,21 +79,92 @@ class CatalogProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Categories are a few hundred bytes and the chips depend on nothing
-      // else, so they are published as soon as they land — the header stops
-      // being a blank skeleton while the much larger product list is still
-      // in flight.
-      _categories = await _repository.categories();
+      // The cafe list decides what the rest of this load asks for, so it goes
+      // first. A backend without cafes — or one that fails to answer this
+      // one call — falls through to the combined catalogue rather than
+      // leaving the customer with an empty screen.
+      _cafes = await _safeCafes();
+      _selectedCafeId = _cafes.isEmpty ? null : _cafes.first.id;
       notifyListeners();
 
-      _dishes = await _repository.dishes();
-      _applyFavorites();
-      _randomizeHomeMenu();
+      await _loadMenu();
     } catch (error) {
       _error = error;
     } finally {
       _loading = false;
       notifyListeners();
+    }
+  }
+
+  /// Swaps the visible menu to another cafe.
+  ///
+  /// Deliberately leaves the cart alone: a cafe is display and navigation
+  /// metadata, and an order may carry products from several of them. The
+  /// backend validates every line and routes the whole order to one branch.
+  Future<void> selectCafe(String cafeId) async {
+    if (cafeId == _selectedCafeId) return;
+    _selectedCafeId = cafeId;
+    _loading = true;
+    _switchingCafe = true;
+    _error = null;
+    // Clear the old cafe's menu straight away — leaving it on screen under a
+    // freshly highlighted card reads as the tap having done nothing.
+    _categories = const [];
+    _dishes = const [];
+    _homeCategories = const [];
+    _homeDishes = const {};
+    notifyListeners();
+    try {
+      await _loadMenu();
+    } catch (error) {
+      _error = error;
+    } finally {
+      _loading = false;
+      _switchingCafe = false;
+      notifyListeners();
+    }
+  }
+
+  /// Re-reads the cafe list and the current menu.
+  ///
+  /// Called when the server rejects a quote or an order: that rejection is
+  /// authoritative and usually means a cafe or product was hidden while the
+  /// customer was browsing, so the cached screen is out of date.
+  Future<void> refreshCatalog() async {
+    final previous = _selectedCafeId;
+    _cafes = await _safeCafes();
+    // Keep the customer where they were unless that cafe is gone.
+    final stillThere = _cafes.any((cafe) => cafe.id == previous);
+    _selectedCafeId = stillThere
+        ? previous
+        : (_cafes.isEmpty ? null : _cafes.first.id);
+    try {
+      await _loadMenu();
+    } catch (error) {
+      _error = error;
+    }
+    notifyListeners();
+  }
+
+  /// Categories first, then products — the chips stop being a blank skeleton
+  /// while the much larger product list is still in flight.
+  Future<void> _loadMenu() async {
+    _categories = await _repository.categories(cafeId: _selectedCafeId);
+    notifyListeners();
+
+    _dishes = await _repository.dishes(cafeId: _selectedCafeId);
+    _applyFavorites();
+    _randomizeHomeMenu();
+  }
+
+  /// A cafe list that fails to load is not a failed catalogue: the endpoint
+  /// is new, and a client that cannot reach it should still get the legacy
+  /// combined menu rather than an error screen.
+  Future<List<Cafe>> _safeCafes() async {
+    try {
+      return await _repository.cafes();
+    } catch (_) {
+      return const [];
     }
   }
 

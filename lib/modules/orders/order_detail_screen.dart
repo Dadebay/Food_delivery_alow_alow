@@ -130,7 +130,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         leading: IconButton(
           icon: HugeIcon(
             icon: HugeIcons.strokeRoundedArrowLeft01,
-            color: AppColors.white,
+            color: AppColors.onBrand,
           ),
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -181,7 +181,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   children: [
                     const HugeIcon(
                       icon: AppIcons.location,
-                      color: AppColors.green,
+                      color: AppColors.onBrand,
                       size: 20,
                     ),
                     const SizedBox(width: 10),
@@ -534,7 +534,7 @@ class _MapPreview extends StatelessWidget {
                     padding: EdgeInsets.all(10),
                     child: HugeIcon(
                       icon: AppIcons.expand,
-                      color: AppColors.green,
+                      color: AppColors.brand,
                       size: 18,
                     ),
                   ),
@@ -714,7 +714,7 @@ class _CancelOrderDialogState extends State<_CancelOrderDialog> {
                 fillColor: AppColors.neutralGrey,
                 border: _reasonBorder(AppColors.divider),
                 enabledBorder: _reasonBorder(AppColors.divider),
-                focusedBorder: _reasonBorder(AppColors.green, width: 1.6),
+                focusedBorder: _reasonBorder(AppColors.brand, width: 1.6),
                 errorBorder: _reasonBorder(AppColors.red),
                 focusedErrorBorder: _reasonBorder(AppColors.red, width: 1.6),
               ),

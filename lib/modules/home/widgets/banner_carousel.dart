@@ -64,7 +64,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
 
                     child: Material(
                       elevation: 10,
-                      shadowColor: AppColors.green.withValues(alpha: 0.22),
+                      shadowColor: AppColors.brand.withValues(alpha: 0.22),
                       color: AppColors.white,
                       borderRadius: BorderRadius.circular(18),
                       clipBehavior: Clip.antiAlias,
@@ -141,13 +141,13 @@ class _BannerImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fallback = Container(
-      color: AppColors.greenSurface,
+      color: AppColors.brandSurface,
       alignment: Alignment.center,
       padding: const EdgeInsets.all(20),
       child: Text(
         banner.title,
         textAlign: TextAlign.center,
-        style: const TextStyle(color: AppColors.green),
+        style: const TextStyle(color: AppColors.brand),
       ),
     );
     if (banner.imageUrl.startsWith('assets/')) {
@@ -240,7 +240,7 @@ class _Pill extends StatelessWidget {
           Transform.scale(scale: scale, child: child),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppColors.green,
+          color: AppColors.brand,
           borderRadius: BorderRadius.circular(3),
         ),
       ),

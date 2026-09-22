@@ -12,27 +12,28 @@ class AppTheme {
     fontFamily: AppText.family,
     scaffoldBackgroundColor: AppColors.white,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: AppColors.green,
-      primary: AppColors.green,
+      seedColor: AppColors.brand,
+      primary: AppColors.brand,
       secondary: AppColors.orange,
       surface: AppColors.white,
       error: AppColors.red,
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.green,
-      foregroundColor: AppColors.white,
+      backgroundColor: AppColors.brand,
+      foregroundColor: AppColors.onBrand,
       elevation: 0,
       centerTitle: false,
       systemOverlayStyle: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
+        // Dark status-bar glyphs: the bar behind them is yellow now.
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
       titleTextStyle: TextStyle(
         fontFamily: AppText.family,
         fontSize: 19,
         fontWeight: FontWeight.w700,
-        color: AppColors.white,
+        color: AppColors.onBrand,
       ),
     ),
     cardTheme: CardThemeData(
@@ -55,7 +56,9 @@ class AppTheme {
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: AppColors.white,
-      selectedItemColor: AppColors.green,
+      // Yellow on a white bar would disappear; the selected tab takes the
+      // ink instead, which is what the yellow-brand apps do too.
+      selectedItemColor: AppColors.onBrand,
       unselectedItemColor: AppColors.textMuted,
       type: BottomNavigationBarType.fixed,
       showUnselectedLabels: true,
@@ -72,8 +75,8 @@ class AppTheme {
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: AppColors.green,
-      contentTextStyle: AppText.body.copyWith(color: AppColors.white),
+      backgroundColor: AppColors.brand,
+      contentTextStyle: AppText.body.copyWith(color: AppColors.onBrand),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -90,7 +93,7 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: AppColors.green, width: 1.6),
+        borderSide: const BorderSide(color: AppColors.onBrand, width: 1.6),
       ),
     ),
   );

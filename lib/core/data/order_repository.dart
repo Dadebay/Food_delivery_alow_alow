@@ -170,7 +170,23 @@ class OrderRepository {
 
   Future<void> rate(String orderId, int stars) async {
     if (AppConfig.useMockData) return;
-    await _api.post(ApiPaths.rateOrder(orderId), data: {'score': stars});
+    final path = ApiPaths.rateOrder(orderId);
+    _rateLog('POST $path  body: {score: $stars}');
+    try {
+      final response = await _api.post(path, data: {'score': stars});
+      _rateLog('HTTP ${response.statusCode}  ${response.data}');
+    } catch (error) {
+      _rateLog('FAILED  $error');
+      rethrow;
+    }
+  }
+
+  /// Debug only. The rating endpoint answers with the stored order, and what
+  /// it actually returns is the only way to tell "the server took it" apart
+  /// from "the app kept the star locally and nobody noticed".
+  static void _rateLog(String message) {
+    // ANSI: black on bright yellow, then yellow text.
+    debugPrint('\x1B[30;103m RATING \x1B[0m \x1B[93m$message\x1B[0m');
   }
 
   /// Cancels an order the customer can still back out of. The deployed

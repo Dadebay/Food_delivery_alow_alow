@@ -225,6 +225,11 @@ abstract class AppStrings {
   String get cancel;
   String get save;
   String get loadingHint;
+
+  /// Shown while the menu of a newly picked cafe is on its way — the customer
+  /// asked for a different kitchen, so the wait is explained rather than left
+  /// as a blank page.
+  String get cafeSwitching;
   String get offlineNoConnection;
   String get locationDenied;
   String get locationDeniedHint;
@@ -640,6 +645,8 @@ class StringsRu extends AppStrings {
   String get save => 'Сохранить';
   @override
   String get loadingHint => 'Загружаем…';
+  @override
+  String get cafeSwitching => 'Готовим меню, подождите…';
   @override
   String get offlineNoConnection => 'Нет интернета — работаем офлайн';
   @override
@@ -1067,6 +1074,8 @@ class StringsTm extends AppStrings {
   String get save => 'Ýatda sakla';
   @override
   String get loadingHint => 'Ýüklenýär…';
+  @override
+  String get cafeSwitching => 'Menýu taýýarlanýar, garaşyň…';
   @override
   String get offlineNoConnection => 'Internet ýok — oflaýn işleýäris';
   @override

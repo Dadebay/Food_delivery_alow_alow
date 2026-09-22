@@ -31,7 +31,7 @@ class ForceUpdateScreen extends StatelessWidget {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: AppColors.green,
+        backgroundColor: AppColors.brand,
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
@@ -75,7 +75,7 @@ class ForceUpdateScreen extends StatelessWidget {
                   s.updateCurrentVersion(update.currentVersion),
                   style: AppText.bodyMuted.copyWith(
                     fontSize: 12,
-                    color: AppColors.greenMuted,
+                    color: AppColors.brandMuted,
                   ),
                 ),
               ],
@@ -171,7 +171,7 @@ class _SupportRow extends StatelessWidget {
       children: [
         Text(
           label,
-          style: AppText.bodyMuted.copyWith(color: AppColors.greenMuted),
+          style: AppText.bodyMuted.copyWith(color: AppColors.brandMuted),
         ),
         const SizedBox(width: 6),
         Text(

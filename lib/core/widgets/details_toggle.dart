@@ -33,7 +33,7 @@ class DetailsToggle extends StatelessWidget {
             Text(
               label,
               style: AppText.body.copyWith(
-                color: AppColors.green,
+                color: AppColors.onBrand,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -46,7 +46,7 @@ class DetailsToggle extends StatelessWidget {
               child: const Icon(
                 Icons.keyboard_arrow_down_rounded,
                 size: 20,
-                color: AppColors.green,
+                color: AppColors.onBrand,
               ),
             ),
           ],

@@ -140,7 +140,7 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                     // Same 36px disc as the back button opposite it. The
                     // glyph is the larger number because it carries its own
                     // white halo inside the drawing.
-                    child: FavoriteToggle(active: dish.isFavorite, onTap: () => catalog.toggleFavorite(dish), size: 30, background: AppColors.white.withValues(alpha: 0.92)),
+                    child: FavoriteToggle(active: dish.isFavorite, onTap: () => catalog.toggleFavorite(dish), size: 24, padding: 6, background: AppColors.white.withValues(alpha: 0.92)),
                   ),
                 ],
                 // Sits invisible in the collapsed toolbar row while the

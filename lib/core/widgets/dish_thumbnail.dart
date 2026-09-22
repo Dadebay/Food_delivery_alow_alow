@@ -106,11 +106,13 @@ class _Fallback extends StatelessWidget {
   /// keeps the same tone every time it's drawn.
   final String seed;
 
+  /// Warm tones only — these were greens, which now read as a leftover from
+  /// the previous palette wherever a dish has no photo yet.
   static const _tones = [
-    (Color(0xFF14513E), Color(0xFF0B3B2E)),
+    (Color(0xFFE23744), Color(0xFFA30D24)),
     (Color(0xFFD9640F), Color(0xFFA8480A)),
     (Color(0xFFB98A2A), Color(0xFF8A6418)),
-    (Color(0xFF1D6B50), Color(0xFF11493A)),
+    (Color(0xFFE08A1E), Color(0xFFB2600C)),
   ];
 
   @override

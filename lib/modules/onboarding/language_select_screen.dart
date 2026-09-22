@@ -94,7 +94,7 @@ class _LanguageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.green : AppColors.white,
+      color: selected ? AppColors.brand : AppColors.white,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -106,7 +106,7 @@ class _LanguageCard extends StatelessWidget {
             border: selected ? null : Border.all(color: AppColors.divider, width: 1.5),
           ),
           child: Center(
-            child: Text(strings.languageName, style: AppText.button.copyWith(fontSize: 15, color: selected ? AppColors.white : AppColors.textPrimary)),
+            child: Text(strings.languageName, style: AppText.button.copyWith(fontSize: 15, color: selected ? AppColors.onBrand : AppColors.textPrimary)),
           ),
         ),
       ),

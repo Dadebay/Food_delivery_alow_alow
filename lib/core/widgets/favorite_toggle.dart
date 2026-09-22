@@ -34,6 +34,7 @@ class FavoriteToggle extends StatelessWidget {
     required this.active,
     required this.onTap,
     this.size = 22,
+    this.padding = 3,
     this.background,
   });
 
@@ -41,8 +42,12 @@ class FavoriteToggle extends StatelessWidget {
   final VoidCallback onTap;
   final double size;
 
+  /// The ring of space between the glyph and the edge of the disc. Exposed so
+  /// a caller can shrink the heart without shrinking the tap target with it.
+  final double padding;
+
   /// Overrides the disc behind the glyph. Left unset, the empty heart gets a
-  /// white one — its own fill is white and its outline grey, which vanishes
+  /// white one — its own fill is white and its outline ink, which vanishes
   /// against a pale dish photo — while the filled heart, red and unmistakable
   /// on anything, keeps the photo showing through.
   final Color? background;
@@ -60,7 +65,7 @@ class FavoriteToggle extends StatelessWidget {
         child: Padding(
           // Tight on the glyph — the disc is there to lift the outline off
           // the photo, not to be a button of its own.
-          padding: const EdgeInsets.all(3),
+          padding: EdgeInsets.all(padding),
           child: SizedBox(
             width: size,
             height: size,

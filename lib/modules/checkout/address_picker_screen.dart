@@ -679,7 +679,7 @@ class _Field extends StatelessWidget {
         labelText: hint,
         labelStyle: AppText.body.copyWith(color: AppColors.textMuted),
         floatingLabelStyle: AppText.body.copyWith(
-          color: AppColors.green,
+          color: AppColors.brand,
           fontWeight: FontWeight.w700,
         ),
         filled: true,
@@ -698,7 +698,7 @@ class _Field extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.green, width: 1.8),
+          borderSide: const BorderSide(color: AppColors.brand, width: 1.8),
         ),
       ),
     );
@@ -749,12 +749,12 @@ class _ChosenAddressCard extends StatelessWidget {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppColors.green,
+                      color: AppColors.brand,
                     ),
                   )
                 : const HugeIcon(
                     icon: AppIcons.location,
-                    color: AppColors.green,
+                    color: AppColors.brand,
                     size: 18,
                   ),
           ),
@@ -823,10 +823,10 @@ class _MapButton extends StatelessWidget {
                     padding: EdgeInsets.all(2),
                     child: CircularProgressIndicator(
                       strokeWidth: 2.2,
-                      color: AppColors.green,
+                      color: AppColors.brand,
                     ),
                   )
-                : HugeIcon(icon: icon, color: AppColors.green, size: 22),
+                : HugeIcon(icon: icon, color: AppColors.onBrand, size: 22),
           ),
         ),
       ),
@@ -890,14 +890,14 @@ class _AddressSearchField extends StatelessWidget {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppColors.green,
+                      color: AppColors.brand,
                     ),
                   )
                 : InkWell(
                     onTap: onSubmit,
                     child: const HugeIcon(
                       icon: AppIcons.search,
-                      color: AppColors.green,
+                      color: AppColors.brand,
                       size: 20,
                     ),
                   ),
@@ -982,7 +982,7 @@ class _AddressSearchResults extends StatelessWidget {
                           padding: EdgeInsets.only(top: 2),
                           child: HugeIcon(
                             icon: AppIcons.location,
-                            color: AppColors.green,
+                            color: AppColors.brand,
                             size: 18,
                           ),
                         ),

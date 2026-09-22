@@ -12,8 +12,8 @@ class AppButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onPressed,
-    this.color = AppColors.orange,
-    this.textColor = AppColors.white,
+    this.color = AppColors.brand,
+    this.textColor = AppColors.onBrand,
     this.outlined = false,
     this.busy = false,
     this.icon,
@@ -30,7 +30,7 @@ class AppButton extends StatelessWidget {
     this.leading,
     this.height = 56,
   }) : color = AppColors.divider,
-       textColor = AppColors.green,
+       textColor = AppColors.onBrand,
        outlined = true;
 
   final String label;

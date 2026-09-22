@@ -67,7 +67,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           leading: IconButton(
             icon: HugeIcon(
               icon: HugeIcons.strokeRoundedArrowLeft01,
-              color: AppColors.white,
+              color: AppColors.onBrand,
             ),
             onPressed: () => Navigator.of(context).pop(),
           ),
@@ -129,7 +129,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               ),
             )
           : RefreshIndicator(
-              color: AppColors.green,
+              color: AppColors.brand,
               onRefresh: orders.load,
               child: ListView.separated(
                 padding: Responsive.pageInsets(

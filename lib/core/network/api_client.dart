@@ -491,6 +491,7 @@ class ApiPaths {
   static const String verifyCode = 'auth/otp/verify';
   static const String refresh = 'auth/refresh';
   static const String logout = 'auth/logout';
+  static const String cafes = 'catalog/cafes';
   static const String categories = 'catalog/categories';
   static const String products = 'catalog/products';
   static const String banners = 'marketing/banners';

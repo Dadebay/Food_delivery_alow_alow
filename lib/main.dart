@@ -24,6 +24,7 @@ import 'core/services/location_service.dart';
 import 'core/services/push_device_registration_service.dart';
 import 'core/services/app_update_service.dart';
 import 'core/services/tile_cache_service.dart';
+import 'core/services/tile_seed_service.dart';
 import 'core/utils/system_ui_manager.dart';
 import 'modules/auth/auth_provider.dart';
 import 'modules/cart/cart_provider.dart';
@@ -77,6 +78,13 @@ Future<void> main() async {
   // start-up must never wait on a network call that routinely fails here.
   final appUpdate = AppUpdateService(api: api);
   unawaited(appUpdate.check());
+
+  // Pre-loads the delivery area's map tiles into the cache the map already
+  // reads from, so the second launch — and every launch after — opens on a
+  // drawn map instead of a grey grid. Fire-and-forget and rate-limited to
+  // once a week: it must never hold up the first frame, and streets do not
+  // change often enough to be worth the customer's data more often.
+  unawaited(TileSeedService.seedIfDue(prefs));
 
   final pushDevices = PushDeviceRegistrationService(api: api);
   final authRepository = AuthRepository(

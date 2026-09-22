@@ -23,7 +23,9 @@ import '../category/category_dishes_screen.dart';
 import '../catalog/catalog_provider.dart';
 import '../checkout/address_picker_screen.dart';
 import '../checkout/address_provider.dart';
+import '../../core/widgets/delivery_loader.dart';
 import 'widgets/banner_carousel.dart';
+import 'widgets/cafe_selector.dart';
 import 'widgets/home_loading_skeleton.dart';
 import 'banner_provider.dart';
 
@@ -145,10 +147,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Only a cold start gets the full-page skeleton; once the
                 // categories are in, the page itself renders and just the
                 // shelves keep shimmering.
-                : catalog.loading && catalog.categories.isEmpty
+                // A cafe switch empties the menu on purpose, but it must not
+                // take the whole page with it: the customer needs to see
+                // which cafe they landed on and be able to change their mind.
+                : catalog.loading &&
+                      catalog.categories.isEmpty &&
+                      !catalog.switchingCafe
                 ? const HomeLoadingSkeleton()
                 : RefreshIndicator(
-                    color: AppColors.green,
+                    color: AppColors.brand,
                     onRefresh: catalog.load,
                     // Slivers rather than `ListView(children: [...])`: that
                     // form builds every child up front, and with a shelf per
@@ -179,23 +186,53 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ? 240
                                           : 340,
                                     ),
-                                  const SizedBox(height: 6),
-                                  _MenuHeading(title: s.sections, allLabel: s.all, selectedCategory: _category, onShowAll: () => setState(() => _category = null)),
-                                  _CategoryChips(
-                                    categories: catalog.categories,
-                                    selected: _category,
-                                    popularLabel: s.categoryPopular,
-                                    onSelect: (id) {
-                                      setState(() => _category = id);
-                                      AnalyticsService.instance.categorySelected(id);
-                                    },
-                                  ),
+                                  // The cafe strip sits between the banner
+                                  // and the menu, so switching cafe never
+                                  // costs the customer their place on the
+                                  // page — and never their cart.
+                                  if (catalog.cafes.length > 1) ...[
+                                    const SizedBox(height: 14),
+                                    CafeSelector(
+                                      cafes: catalog.cafes,
+                                      selectedId: catalog.selectedCafeId,
+                                      onSelect: (id) {
+                                        setState(() => _category = null);
+                                        catalog.selectCafe(id);
+                                      },
+                                    ),
+                                  ],
+                                  // An empty heading over an empty chip row
+                                  // is worse than nothing while the next
+                                  // cafe's menu is still coming.
+                                  if (!catalog.switchingCafe) ...[
+                                    const SizedBox(height: 6),
+                                    _MenuHeading(title: s.sections, allLabel: s.all, selectedCategory: _category, onShowAll: () => setState(() => _category = null)),
+                                    _CategoryChips(
+                                      categories: catalog.categories,
+                                      selected: _category,
+                                      popularLabel: s.categoryPopular,
+                                      onSelect: (id) {
+                                        setState(() => _category = id);
+                                        AnalyticsService.instance.categorySelected(id);
+                                      },
+                                    ),
+                                  ],
                                   const SizedBox(height: 6),
                                 ],
                               ),
                             ),
                           ),
-                          if (catalog.loading)
+                          if (catalog.switchingCafe)
+                            SliverToBoxAdapter(
+                              child: _CafeSwitchingPanel(
+                                message: s.cafeSwitching,
+                                cafeName: catalog.cafes
+                                    .where((c) => c.id == catalog.selectedCafeId)
+                                    .map((c) => c.name)
+                                    .firstOrNull,
+                              ),
+                            )
+                          else if (catalog.loading)
                             const SliverToBoxAdapter(child: HomeLoadingSkeleton.shelves())
                           else if (_category == null)
                             SliverList.builder(
@@ -416,7 +453,7 @@ class _HeaderState extends State<_Header> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: AppColors.green,
+      color: AppColors.brand,
       padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 12, 20, 20),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -444,7 +481,7 @@ class _HeaderState extends State<_Header> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(widget.deliveryAddressLabel, style: AppText.label.copyWith(color: AppColors.greenMuted, fontSize: 12)),
+                          Text(widget.deliveryAddressLabel, style: AppText.label.copyWith(color: AppColors.brandMuted, fontSize: 12)),
                           const SizedBox(height: 6),
                           Text(widget.addressLine ?? '—', style: AppText.h1.copyWith(fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
                         ],
@@ -473,14 +510,14 @@ class _HeaderState extends State<_Header> {
           ),
           const SizedBox(width: 12),
           Material(
-            color: AppColors.greenSurface,
+            color: AppColors.brandSurface,
             shape: const CircleBorder(),
             child: InkWell(
               customBorder: const CircleBorder(),
               onTap: _toggleSearch,
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: HugeIcon(icon: _searchOpen ? AppIcons.cancel : AppIcons.search, color: AppColors.white, size: 20),
+                child: HugeIcon(icon: _searchOpen ? AppIcons.cancel : AppIcons.search, color: AppColors.onBrand, size: 20),
               ),
             ),
           ),
@@ -588,9 +625,9 @@ class _Chip extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: active ? AppColors.green : AppColors.cream,
+        color: active ? AppColors.brand : AppColors.cream,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: active ? [BoxShadow(color: AppColors.green.withValues(alpha: 0.28), blurRadius: 10, offset: const Offset(0, 4))] : null,
+        boxShadow: active ? [BoxShadow(color: AppColors.brand.withValues(alpha: 0.28), blurRadius: 10, offset: const Offset(0, 4))] : null,
       ),
       child: Material(
         type: MaterialType.transparency,
@@ -615,4 +652,37 @@ class _Chip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// What the customer sees between one cafe's menu and the next.
+///
+/// Switching cafe is a real wait — a fresh category and product request —
+/// and a page that simply empties looks like the tap broke something. The
+/// courier animation is the app's own "working on it" signal, and naming the
+/// cafe underneath confirms the choice landed.
+class _CafeSwitchingPanel extends StatelessWidget {
+  const _CafeSwitchingPanel({required this.message, this.cafeName});
+
+  final String message;
+  final String? cafeName;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 24, 20, 48),
+    child: Column(
+      children: [
+        const DeliveryLoader(size: 170),
+        const SizedBox(height: 12),
+        if (cafeName != null) ...[
+          Text(
+            cafeName!,
+            style: AppText.h2.copyWith(fontSize: 18),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+        ],
+        Text(message, style: AppText.bodyMuted, textAlign: TextAlign.center),
+      ],
+    ),
+  );
 }

@@ -43,7 +43,7 @@ abstract final class AppSnackBar {
       ..showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.green,
+          backgroundColor: AppColors.brand,
           elevation: 8,
           duration: const Duration(seconds: 5),
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -94,7 +94,7 @@ abstract final class AppSnackBar {
   static Color _accent(AppSnackKind kind) => switch (kind) {
     AppSnackKind.warning => AppColors.gold,
     AppSnackKind.error => AppColors.orange,
-    AppSnackKind.success => AppColors.greenLight,
+    AppSnackKind.success => AppColors.brandLight,
   };
 
   static HugeIconData _icon(AppSnackKind kind) => switch (kind) {
@@ -133,7 +133,7 @@ class _Action extends StatelessWidget {
           child: Text(
             label,
             style: AppText.body.copyWith(
-              color: AppColors.green,
+              color: AppColors.brand,
               fontWeight: FontWeight.w700,
               fontSize: 13,
             ),
