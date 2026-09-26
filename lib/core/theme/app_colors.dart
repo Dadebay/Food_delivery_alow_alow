@@ -11,20 +11,31 @@ class AppColors {
   /// The brand surface — the app bar, the bottom bar, primary buttons.
   ///
   /// Yellow, the way the big delivery apps use it (Yandex Eats, McDonald's):
-  /// warm and impossible to miss. Unlike the dark surface it replaces, it
-  /// carries *dark* text — white on yellow is unreadable — so anything drawn
-  /// on top of it uses [onBrand] rather than [white].
-  static const Color brand = Color(0xFFFCE000);
-  static const Color brandLight = Color(0xFFFFF04D);
-  static const Color brandSurface = Color(0xFFF0D200);
+  /// warm and impossible to miss. Softened off full saturation — the pure
+  /// yellow it started at (#FCE000) glared across whole surfaces like the app
+  /// bar and the bottom bar, where the colour covers too much of the screen to
+  /// stay at that intensity. Full amber (#FFBF0D) was tried in its place and
+  /// went too far the other way, reading as orange next to [orange] itself.
+  /// It carries *dark* text — white on yellow is unreadable — so anything
+  /// drawn on top of it uses [onBrand] rather than [white].
+  ///
+  /// [brandLight] and [brandSurface] are the same hue a step up and a step
+  /// down: the light one tints (timelines, success snacks, gradients), the
+  /// dark one is the surface that has to read as deeper than [brand] itself
+  /// (the home strip, the banner carousel).
+  static const Color brand = Color(0xFFF7D148);
+  static const Color brandLight = Color(0xFFFBE38A);
+  static const Color brandSurface = Color(0xFFE8BE2F);
 
   /// Text and icons on [brand]. Near-black rather than pure black so it sits
   /// on yellow without the hard edge full black gives.
   static const Color onBrand = Color(0xFF1B1A17);
 
   /// A dimmed ink for secondary labels on the brand surface — the yellow
-  /// equivalent of a muted grey on white.
-  static const Color brandMuted = Color(0xFF7A7048);
+  /// equivalent of a muted grey on white. Darkened from the original #7A7048,
+  /// which only cleared 3.3:1 against [brand] — under the 4.5:1 that the 12px
+  /// address label on the home header needs to stay readable.
+  static const Color brandMuted = Color(0xFF5A5235);
 
   /// Accent colour — sampled from the app icon. Primary buttons, discount
   /// badges, the cart bar, "Заказать".
@@ -69,10 +80,6 @@ class AppColors {
   /// background, so the scaffold behind it doesn't read as a slightly
   /// different white next to the video.
   static const Color neutralGrey = Color(0xFFFFFBF2);
-
-  /// Matches the baked background of the delivery-loader video, so it blends
-  /// into the loading page instead of appearing as a visible rectangle.
-  static const Color loaderBackground = Color(0xFFF7F7F7);
 
   /// Near-black with a warm cast rather than the old green one, so text sits
   /// on the cream surfaces without looking cold against them.

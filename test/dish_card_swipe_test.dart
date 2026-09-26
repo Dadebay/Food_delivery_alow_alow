@@ -44,7 +44,8 @@ void main() {
     );
 
     await tester.fling(find.byType(PageView), const Offset(-120, 0), 500);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     // The gallery loops, so it starts deep into a repeating range: the photo
     // on screen is the page modulo the gallery.

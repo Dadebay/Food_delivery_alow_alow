@@ -48,7 +48,14 @@ class DishThumbnail extends StatelessWidget {
     // the cart is the only screen that passes an override, and an override
     // that was empty or failed to load dropped straight to the gradient
     // instead of the photo the dish had all along.
-    var image = dishUrl == null ? branded : _image(context, dishUrl, branded);
+    // A dish with no photo at all keeps the tinted tile — there is nothing
+    // coming, and a wordmark that never resolves would read as a stuck app.
+    // A dish that *has* a photo the phone could not fetch is a different
+    // story: that is the network, not the menu, so it gets the same grey
+    // field and sweeping wordmark every loading photo in the app shows.
+    var image = dishUrl == null
+        ? branded
+        : _image(context, dishUrl, const BrandShimmerBox());
     if (variantUrl != null && variantUrl != dishUrl) {
       image = _image(context, variantUrl, image);
     }

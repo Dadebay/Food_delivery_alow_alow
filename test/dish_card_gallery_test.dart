@@ -33,7 +33,8 @@ void main() {
 
     expect(find.byType(PageView), findsOneWidget);
     await tester.fling(find.byType(PageView), const Offset(-120, 0), 500);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     // The dots are the only visible read-out of the page, so assert on the
     // controller the pager actually settled to.
@@ -50,7 +51,8 @@ void main() {
     // rather than stopping against the end of the gallery.
     for (var i = 0; i < 3; i++) {
       await tester.fling(find.byType(PageView), const Offset(-120, 0), 500);
-      await tester.pumpAndSettle();
+      await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
     }
 
     final page = tester.widget<PageView>(find.byType(PageView)).controller!.page!;
@@ -66,7 +68,8 @@ void main() {
         .page!;
 
     await tester.fling(find.byType(PageView), const Offset(120, 0), 500);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     final page = tester.widget<PageView>(find.byType(PageView)).controller!.page!;
     expect(page, start - 1);

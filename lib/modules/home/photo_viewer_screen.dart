@@ -6,6 +6,7 @@ import '../../core/services/catalog_image_cache_manager.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/widgets/brand_shimmer.dart';
 
 /// Full-screen photo viewer: the dish's photos at their real aspect ratio,
 /// pinch- and double-tap-zoomable.
@@ -183,13 +184,10 @@ class _Photo extends StatelessWidget {
           ),
         ),
       ),
-      errorWidget: (context, url, error) => Center(
-        child: HugeIcon(
-          icon: AppIcons.foodWatermark,
-          color: AppColors.white.withValues(alpha: 0.3),
-          size: 64,
-        ),
-      ),
+      // Full-bleed on black, so the wordmark carries the frame on its own
+      // rather than sitting on the grey field the tiles use.
+      errorWidget: (context, url, error) =>
+          const Center(child: BrandShimmerText(size: 22)),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/localization/locale_provider.dart';
+import '../../core/services/app_update_service.dart';
 import '../../core/services/firebase_messaging_service.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/widgets/cart_fly_animation.dart';
@@ -38,16 +39,14 @@ class _MainNavScreenState extends State<MainNavScreen> {
   ];
 
   final _push = FirebaseMessagingService.instance;
+  AppUpdateService? _appUpdate;
+  bool _updatePromptScheduled = false;
 
   @override
   void initState() {
     super.initState();
-    // After the first frame: the version check runs in the background from
-    // `main`, so its answer usually lands around now rather than before the
-    // menu is on screen. Nothing happens unless there is something to offer.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      showOptionalUpdateSheet(context);
       // A cold start from a tapped notification resolves its destination
       // before this screen exists, so the parked value is read once here as
       // well as watched for later taps.
@@ -57,9 +56,37 @@ class _MainNavScreenState extends State<MainNavScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final update = context.read<AppUpdateService>();
+    if (identical(update, _appUpdate)) return;
+    _appUpdate?.removeListener(_scheduleUpdatePrompt);
+    _appUpdate = update..addListener(_scheduleUpdatePrompt);
+    _scheduleUpdatePrompt();
+  }
+
+  @override
   void dispose() {
+    _appUpdate?.removeListener(_scheduleUpdatePrompt);
     _push.pendingTab.removeListener(_openPendingTab);
     super.dispose();
+  }
+
+  /// Store lookups usually finish after the first frame. Listening to the
+  /// service prevents that late answer from being missed, while the flag
+  /// prevents rebuilds from scheduling the same modal more than once.
+  void _scheduleUpdatePrompt() {
+    if (!mounted ||
+        _updatePromptScheduled ||
+        !(_appUpdate?.shouldPromptOptional ?? false)) {
+      return;
+    }
+    _updatePromptScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await showOptionalUpdateSheet(context);
+      _updatePromptScheduled = false;
+    });
   }
 
   void _openPendingTab() {

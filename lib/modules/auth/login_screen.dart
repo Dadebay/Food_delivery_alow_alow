@@ -19,7 +19,12 @@ const int _phoneDigits = 8;
 /// change: drop the new file in `assets/`, list it in `pubspec.yaml`, and
 /// point this constant at it. The card below carries every piece of text, so
 /// the picture only has to look good — it never has to stay readable.
-const String _backgroundAsset = 'assets/onboard.png';
+/// The charcoal recolour of `onboard.png`. The original's background is a
+/// green field left from the previous palette — and green is the one colour
+/// the yellow-and-black identity has no room for. Recoloured rather than
+/// re-tinted yellow because the wordmark on it is white and orange: on
+/// yellow the white half would disappear.
+const String _backgroundAsset = 'assets/onboard_dark.png';
 
 /// Phone + SMS code — no passwords. The name is asked alongside the phone
 /// number, once, on sign-up: it's sent as `firstName` on the verify call
@@ -90,10 +95,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
+                  // A neutral dark scrim rather than a tinted one: it sits
+                  // over a photograph, and the old green tint was a leftover
+                  // of the previous palette that the yellow cannot replace —
+                  // a yellow veil over food reads as a bad photo.
                   colors: [
-                    Color(0x660B3B2E),
+                    Color(0x59000000),
                     Color(0x00000000),
-                    Color(0xCC0B3B2E),
+                    Color(0xCC000000),
                   ],
                   stops: [0, 0.45, 1],
                 ),
@@ -455,14 +464,21 @@ class _LanguageSwitch extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
+                  // The chips sit on the photo, so the unpicked ones are a
+                  // dark glass pill rather than a second solid colour
+                  // competing with the brand yellow next to them.
                   color: strings.languageCode == current
-                      ? AppColors.orange
-                      : AppColors.brandSurface,
+                      ? AppColors.brand
+                      : AppColors.onBrand.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   strings.languageCode.toUpperCase(),
-                  style: AppText.chip.copyWith(color: AppColors.white),
+                  style: AppText.chip.copyWith(
+                    color: strings.languageCode == current
+                        ? AppColors.onBrand
+                        : AppColors.white,
+                  ),
                 ),
               ),
             ),

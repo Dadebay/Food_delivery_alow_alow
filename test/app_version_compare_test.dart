@@ -52,4 +52,39 @@ void main() {
     expect(AppVersionInfo.compare('1.0.0', info.minSupportedVersion), 1);
     expect(AppVersionInfo.compare('1.0.0', info.latestVersion), 1);
   });
+
+  test('store discovery can add a newer optional version', () {
+    final merged = AppVersionInfo.mergeSources(
+      backend: const AppVersionInfo(
+        latestVersion: '1.0.5',
+        minSupportedVersion: '1.0.0',
+        storeUrl: 'https://api.example/store',
+        releaseNotesRu: 'Backend notes',
+      ),
+      store: const AppVersionInfo(
+        latestVersion: '1.0.6',
+        minSupportedVersion: '9.9.9',
+        storeUrl: 'https://store.example/app',
+        releaseNotesRu: 'Store notes',
+      ),
+    );
+
+    expect(merged?.latestVersion, '1.0.6');
+    // Store metadata is advisory and cannot turn an optional update into a
+    // forced one. Only the backend minimum survives the merge.
+    expect(merged?.minSupportedVersion, '1.0.0');
+    expect(merged?.storeUrl, 'https://api.example/store');
+    expect(merged?.releaseNotes('ru'), 'Store notes');
+  });
+
+  test('backend policy still works when the store lookup is unavailable', () {
+    const backend = AppVersionInfo(
+      latestVersion: '2.0.0',
+      minSupportedVersion: '1.5.0',
+    );
+
+    final merged = AppVersionInfo.mergeSources(backend: backend, store: null);
+
+    expect(identical(merged, backend), isTrue);
+  });
 }

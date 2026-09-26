@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/data/contact_repository.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/localization/locale_provider.dart';
+import '../../core/services/app_update_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -58,12 +59,16 @@ class ProfileScreen extends StatelessWidget {
               style: IconButton.styleFrom(
                 backgroundColor: AppColors.white.withValues(alpha: 0.14),
                 shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: AppColors.brandMuted),
+                  // The muted brand ink read as a darker yellow against the
+                  // app bar rather than as an edge; the neutral grey is the
+                  // same outline the home search field and the empty heart
+                  // now use.
+                  side: const BorderSide(color: AppColors.textMuted),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.all(10),
               ),
-              icon: const HugeIcon(icon: AppIcons.call, color: AppColors.onBrand, size: 20),
+              icon: const Icon(AppIcons.callOutline, color: AppColors.onBrand, size: 22),
             ),
           ),
         ],
@@ -98,7 +103,7 @@ class ProfileScreen extends StatelessWidget {
           _Tile(
             icon: AppIcons.info,
             title: s.aboutApp,
-            subtitle: '${s.appVersionLabel} 1.0.0',
+            subtitle: '${s.appVersionLabel} ${_installedVersion(context)}',
             onTap: () => showDialog<void>(context: context, builder: (_) => const _AboutAppDialog()),
           ),
           if (auth.isSignedIn) ...[
@@ -284,7 +289,7 @@ class _AboutAppDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(20)),
-              child: Text('${s.appVersionLabel} 1.0.0', style: AppText.chip.copyWith(color: AppColors.textSecondary)),
+              child: Text('${s.appVersionLabel} ${_installedVersion(context)}', style: AppText.chip.copyWith(color: AppColors.textSecondary)),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -775,4 +780,18 @@ class _Body extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The version this build actually reports, not a number typed into the
+/// source.
+///
+/// It was hard-coded as `1.0.0` in two places and had been wrong since the
+/// first release after that — which matters more than it looks: this string
+/// is what a customer reads out when they report a problem, and a wrong one
+/// sends whoever is helping them looking at the wrong build.
+String _installedVersion(BuildContext context) {
+  final version = context.watch<AppUpdateService>().currentVersion;
+  // Empty until the update check has read the package info, which is a
+  // fraction of a second after launch.
+  return version.isEmpty ? '—' : version;
 }

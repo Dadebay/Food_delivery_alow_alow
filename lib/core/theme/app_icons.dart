@@ -1,4 +1,6 @@
+import 'package:flutter/widgets.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:iconly/iconly.dart';
 
 /// HugeIcons ships its glyphs as raw path data rather than an icon font, so
 /// this is the type every icon parameter in the app is declared with.
@@ -67,4 +69,18 @@ class AppIcons {
   /// Background watermark for a category card that has no dish photo yet —
   /// keeps the parallax drift visible even on a flat tint.
   static const HugeIconData foodWatermark = HugeIcons.strokeRoundedServingFood;
+
+  // ─── Iconly ──────────────────────────────────────────────────
+  // A handful of glyphs come from Iconly rather than HugeIcons, where its
+  // drawing reads better at the small size these are used at. Iconly is a
+  // real icon *font*, so these are plain [IconData] for Flutter's own [Icon]
+  // widget — not the [HugeIconData] path lists above, and not
+  // interchangeable with them.
+  //
+  // Iconly has no list glyph of its own; `document` — a page with lines on
+  // it — is the closest, and next to `category`'s grid of squares the pair
+  // reads as the two layouts it switches between.
+  static const IconData callOutline = IconlyLight.call;
+  static const IconData gridViewOutline = IconlyLight.category;
+  static const IconData listViewOutline = IconlyLight.document;
 }

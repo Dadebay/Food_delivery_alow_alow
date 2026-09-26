@@ -95,15 +95,21 @@ class _CategoryScreenState extends State<CategoryScreen> {
               style: IconButton.styleFrom(
                 backgroundColor: AppColors.white.withValues(alpha: 0.14),
                 shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: AppColors.brandMuted),
+                  // The muted brand ink read as a darker yellow against the
+                  // app bar rather than as an edge; the neutral grey is the
+                  // same outline the home search field and the empty heart
+                  // now use.
+                  side: const BorderSide(color: AppColors.textMuted),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.all(10),
               ),
-              icon: HugeIcon(
-                icon: _isGridView ? AppIcons.listView : AppIcons.category,
+              icon: Icon(
+                _isGridView
+                    ? AppIcons.listViewOutline
+                    : AppIcons.gridViewOutline,
                 color: AppColors.onBrand,
-                size: 20,
+                size: 22,
               ),
             ),
           ),
@@ -112,11 +118,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
       body: catalog.loading
           // Stamped once, when the grid actually appears — the entrance
           // window is measured from there, not from the first tile built.
-          ? ColoredBox(
-              color: AppColors.loaderBackground,
-              child: Center(
-                child: DeliveryLoader(size: 200, message: s.loadingHint),
-              ),
+          // No panel behind it: the animation carries its own transparency
+          // now, so the page's own surface shows through instead of a flat
+          // grey rectangle the size of the screen.
+          ? Center(
+              child: DeliveryLoader(size: 200, message: s.loadingHint),
             )
           : GridView.builder(
               controller: _scrollController,
@@ -406,7 +412,10 @@ class _CategoryImage extends StatelessWidget {
         // field and sweeping wordmark say the same thing every other
         // loading photo in the app says.
         placeholder: (context, url) => const BrandShimmerBox(),
-        errorWidget: (context, url, error) => fallback,
+        // A cover that failed to download is the network's doing, not a
+        // category without art — so it keeps the wordmark rather than
+        // dropping to the watermark tile.
+        errorWidget: (context, url, error) => const BrandShimmerBox(),
       );
     }
     return Image.asset(

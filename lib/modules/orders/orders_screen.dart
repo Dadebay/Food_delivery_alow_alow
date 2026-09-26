@@ -93,11 +93,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
         automaticallyImplyLeading: false,
       ),
       body: orders.loading
-          ? ColoredBox(
-              color: AppColors.loaderBackground,
-              child: Center(
-                child: DeliveryLoader(size: 200, message: s.loadingHint),
-              ),
+          ? Center(
+              child: DeliveryLoader(size: 200, message: s.loadingHint),
             )
           : orders.orders.isEmpty
           ? Center(

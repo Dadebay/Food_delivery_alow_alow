@@ -7,6 +7,7 @@ import '../../../core/services/catalog_image_cache_manager.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/widgets/brand_shimmer.dart';
 
 /// The horizontal strip of cafes above the menu.
 ///
@@ -123,31 +124,50 @@ class _CafeCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _CafeImage(url: cafe.imageUrl),
+            // The chosen cafe's photo is shown as it is — full colour, no
+            // filter. The others are drained towards grey, which is what
+            // carries "not this one" now: dimming every card equally left
+            // even the selected photo looking washed out, when that picture
+            // is the whole point of the card.
+            if (selected)
+              _CafeImage(url: cafe.imageUrl)
+            else
+              ColorFiltered(
+                colorFilter: const ColorFilter.matrix(_dimmedSaturation),
+                child: _CafeImage(url: cafe.imageUrl),
+              ),
 
             // The name sits on the photo rather than in a strip under it:
             // the strip cost a third of the card's height and left the
             // picture — the only thing that tells one cafe from another —
             // squeezed into what was left.
-            const IgnorePointer(
+            //
+            // The scrim under the name is kept as short and as light as the
+            // text can stand on the selected card, and only deepens on the
+            // ones stepping back: a gradient that starts at 45% of the
+            // height was darkening more than half of the photo the customer
+            // actually chose.
+            IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Color(0xCC000000)],
-                    stops: [0.45, 1.0],
+                    colors: const [Colors.transparent, Color(0xCC000000)],
+                    stops: selected ? const [0.62, 1.0] : const [0.45, 1.0],
                   ),
                 ),
               ),
             ),
 
             // Unselected cards step back a little so the chosen one reads at
-            // a glance without needing a loud border.
+            // a glance without needing a loud border. Lighter than it was —
+            // the desaturation above now does most of this work, and the two
+            // stacked turned the photo into a pale smear.
             if (!selected)
               IgnorePointer(
                 child: ColoredBox(
-                  color: AppColors.white.withValues(alpha: 0.28),
+                  color: AppColors.white.withValues(alpha: 0.16),
                 ),
               ),
 
@@ -207,6 +227,16 @@ class _CafeCard extends StatelessWidget {
       ),
     );
   }
+
+  /// Saturation at 45%, as the standard luminance-weighted matrix. Not zero:
+  /// a fully grey card reads as disabled rather than as the option not
+  /// currently chosen.
+  static const List<double> _dimmedSaturation = <double>[
+    0.5672, 0.3933, 0.0396, 0, 0, //
+    0.1172, 0.8433, 0.0396, 0, 0, //
+    0.1172, 0.3933, 0.4896, 0, 0, //
+    0, 0, 0, 1, 0, //
+  ];
 }
 
 /// The cafe photo, or a quiet cream placeholder when it is missing.
@@ -234,8 +264,11 @@ class _CafeImage extends StatelessWidget {
       cacheManager: CatalogImageCacheManager.instance,
       fit: BoxFit.cover,
       fadeInDuration: const Duration(milliseconds: 150),
-      placeholder: (_, _) => const _CafeImageFallback(),
-      errorWidget: (_, _, _) => const _CafeImageFallback(),
+      // In flight, and failed-to-fetch, both read as "the photo is not here
+      // yet" — the cream watermark tile stays for a cafe that has no photo
+      // on record at all.
+      placeholder: (_, _) => const BrandShimmerBox(),
+      errorWidget: (_, _, _) => const BrandShimmerBox(),
     );
   }
 }

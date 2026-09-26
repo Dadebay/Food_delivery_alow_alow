@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:food_delivery/core/models/dish.dart';
 import 'package:food_delivery/core/services/catalog_image_cache_manager.dart';
+import 'package:food_delivery/core/widgets/brand_shimmer.dart';
 import 'package:food_delivery/core/widgets/cart_fly_animation.dart';
 import 'package:food_delivery/core/widgets/dish_thumbnail.dart';
 
@@ -30,6 +31,19 @@ void main() {
       CatalogImageCacheManager.instance.config.stalePeriod,
       const Duration(days: 365),
     );
+
+    final imageContext = tester.element(find.byType(CachedNetworkImage));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: image.errorWidget!(
+          imageContext,
+          image.imageUrl,
+          Exception('unavailable'),
+        ),
+      ),
+    );
+    expect(find.byType(BrandShimmerBox), findsOneWidget);
+    expect(find.text(BrandShimmerText.wordmark), findsOneWidget);
   });
 
   test('cart animation reuses the product image cache', () {

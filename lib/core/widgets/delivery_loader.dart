@@ -1,96 +1,52 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 
-import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
-/// The app's loading animation — the delivery scooter clip, looping.
+/// The app's loading animation — the courier clip, looping.
 ///
-/// The asset is a muted MP4 played through [VideoPlayerController.asset]. It is
-/// decoded locally and looped in place, so nothing is downloaded and it keeps
-/// working with no connection.
-class DeliveryLoader extends StatefulWidget {
+/// An animated WebP with a transparent background, decoded and looped by
+/// Flutter's own image pipeline. It was an MP4 played through `video_player`,
+/// which worked but could only ever draw an opaque rectangle: H.264 has no
+/// alpha channel, so the clip's own flat #F5F5F5 field was baked into every
+/// frame and showed as a grey box behind the drawing on every screen that
+/// used it. WebP carries alpha, so the artwork now sits directly on whatever
+/// is behind it.
+///
+/// The clip is also cropped to the drawing itself — the source frames were
+/// 800x600 with the art occupying a 247px square in the middle, so most of
+/// what the widget reserved was empty grey. Nothing is downloaded and it
+/// keeps working with no connection, as before.
+class DeliveryLoader extends StatelessWidget {
   const DeliveryLoader({super.key, this.size = 200, this.message});
 
-  /// Width of the animation. Height follows the clip's own aspect ratio.
+  /// Width of the animation. The clip is square, so this is its height too.
   final double size;
 
   /// Optional caption underneath.
   final String? message;
 
-  static const String asset = 'assets/animations/delivery_loader.mp4';
-
-  @override
-  State<DeliveryLoader> createState() => _DeliveryLoaderState();
-}
-
-class _DeliveryLoaderState extends State<DeliveryLoader> {
-  late final VideoPlayerController _controller;
-  bool _ready = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = VideoPlayerController.asset(DeliveryLoader.asset)
-      ..setLooping(true)
-      ..setVolume(0);
-
-    _controller
-        .initialize()
-        .then((_) {
-          if (!mounted) return;
-          _controller.play();
-          setState(() => _ready = true);
-        })
-        .catchError((Object _) {
-          // A decode failure must not take the screen down with it — the caption
-          // and the layout stay, the animation simply does not appear.
-          if (mounted) setState(() => _ready = false);
-        });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  static const String asset = 'assets/animations/delivery_loader.webp';
 
   @override
   Widget build(BuildContext context) {
-    // 4:3 keeps the slot the right size before the clip reports its own ratio,
-    // so the surrounding layout does not jump when it appears.
-    final aspect = _ready ? _controller.value.aspectRatio : 4 / 3;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: widget.size,
-          height: widget.size / aspect,
-          child: _ready
-              ? FittedBox(
-                  fit: BoxFit.contain,
-                  child: SizedBox(
-                    width: _controller.value.size.width,
-                    height: _controller.value.size.height,
-                    child: VideoPlayer(_controller),
-                  ),
-                )
-              : const Center(
-                  child: SizedBox(
-                    width: 26,
-                    height: 26,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      color: AppColors.orange,
-                    ),
-                  ),
-                ),
+        Image.asset(
+          asset,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          // A decode failure must not take the screen down with it — the
+          // caption and the layout stay, the animation simply does not
+          // appear, and the slot keeps its size so nothing jumps.
+          errorBuilder: (context, error, stackTrace) =>
+              SizedBox(width: size, height: size),
         ),
-        if (widget.message != null) ...[
+        if (message != null) ...[
           const SizedBox(height: 12),
           Text(
-            widget.message!,
+            message!,
             textAlign: TextAlign.center,
             style: AppText.bodyMuted,
           ),

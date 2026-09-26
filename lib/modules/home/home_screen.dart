@@ -498,6 +498,23 @@ class _HeaderState extends State<_Header> {
                     style: AppText.body,
                     decoration: InputDecoration(
                       hintText: widget.searchHint,
+                      // The app-wide field style has no outline: on a white
+                      // page the fill alone is enough to read as a field.
+                      // This one sits on the brand yellow, where a white
+                      // fill has no edge of its own, so it gets the muted
+                      // grey — the same ink as the magnifier inside it.
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppColors.textMuted),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppColors.textMuted),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppColors.textMuted),
+                      ),
                       prefixIcon: const Padding(
                         padding: EdgeInsets.all(14),
                         child: HugeIcon(icon: AppIcons.search, color: AppColors.textMuted, size: 20),
@@ -641,7 +658,10 @@ class _Chip extends StatelessWidget {
               child: Text(
                 label,
                 style: AppText.chip.copyWith(
-                  color: active ? AppColors.white : AppColors.textPrimary,
+                  // Near-black, not white: the selected chip's fill is the
+                  // brand amber, and white on amber is the one pairing this
+                  // palette cannot carry — see AppColors.onBrand.
+                  color: active ? AppColors.onBrand : AppColors.textPrimary,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                   fontSize: Responsive.isCompact(context) ? null : 15,
                 ),

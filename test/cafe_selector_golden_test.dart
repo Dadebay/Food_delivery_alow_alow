@@ -50,7 +50,8 @@ Future<void> shoot(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  await tester.pump();
+  await tester.pump(const Duration(seconds: 1));
   await expectLater(
     find.byType(CafeSelector),
     matchesGoldenFile('goldens/$file'),
