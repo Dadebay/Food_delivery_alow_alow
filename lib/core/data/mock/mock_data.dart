@@ -2,6 +2,8 @@ import 'package:latlong2/latlong.dart';
 
 import '../../models/cafe.dart';
 import '../../models/dish.dart';
+import '../../models/loyalty_account.dart';
+import '../../models/loyalty_gift.dart';
 
 /// Demo catalogue — the exact dishes shown in the approved mock-up
 /// (`Naharym-mockups-RU/cust_home.png`), plus enough extra items across the
@@ -231,4 +233,61 @@ class MockData {
     'assets/images/banners/banner_5.png',
     'assets/images/banners/banner_6.png',
   ];
+
+  /// Demo gift shop, so the loyalty screens can be shown before the loyalty
+  /// API is deployed. `stock: null` is a real state — "no limit" — not a
+  /// placeholder for a number nobody filled in.
+  static const List<LoyaltyGift> gifts = [
+    LoyaltyGift(
+      id: 'gift-cola',
+      name: 'Coca-Cola 0.5',
+      description: 'Холодная газировка к заказу',
+      pointsCost: 40,
+      stock: 12,
+    ),
+    LoyaltyGift(
+      id: 'gift-chai',
+      name: 'Чайник зелёного чая',
+      description: 'Классический чай, 1 литр',
+      pointsCost: 60,
+      stock: null,
+    ),
+    LoyaltyGift(
+      id: 'gift-desert',
+      name: 'Пахлава',
+      description: 'Домашняя пахлава, 2 шт',
+      pointsCost: 120,
+      stock: 3,
+    ),
+  ];
+
+  /// Demo balance and history. The balance is deliberately *not* the sum of
+  /// the entries — the real endpoint returns only the last few operations,
+  /// and a demo that adds up exactly would teach the wrong thing to whoever
+  /// reads the screen next.
+  static final LoyaltyAccount loyaltyAccount = LoyaltyAccount(
+    pointsBalance: 185,
+    entries: [
+      LoyaltyEntry(
+        kind: LoyaltyEntryKind.earn,
+        points: 45,
+        createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      ),
+      LoyaltyEntry(
+        kind: LoyaltyEntryKind.redeem,
+        points: -40,
+        createdAt: DateTime.now().subtract(const Duration(days: 3)),
+      ),
+      LoyaltyEntry(
+        kind: LoyaltyEntryKind.refund,
+        points: 40,
+        createdAt: DateTime.now().subtract(const Duration(days: 3)),
+      ),
+      LoyaltyEntry(
+        kind: LoyaltyEntryKind.earn,
+        points: 30,
+        createdAt: DateTime.now().subtract(const Duration(days: 8)),
+      ),
+    ],
+  );
 }

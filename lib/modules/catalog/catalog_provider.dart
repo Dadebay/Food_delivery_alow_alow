@@ -29,6 +29,7 @@ class CatalogProvider extends ChangeNotifier {
   bool _switchingCafe = false;
   List<DishCategory> _categories = const [];
   List<Dish> _dishes = const [];
+
   bool _loading = true;
   Object? _error;
   String _query = '';

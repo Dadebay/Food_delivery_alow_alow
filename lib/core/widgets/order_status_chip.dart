@@ -25,6 +25,10 @@ class OrderStatusChip extends StatelessWidget {
       ),
       child: Text(
         label(status, strings),
+        // Dar ekranda uzun bir durum adi ("Курьер в пути") rozeti tasiriyor;
+        // rozet kuculdugunde metin kirpilsin, satiri itmesin.
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: AppText.chip.copyWith(color: status.color),
       ),
     );

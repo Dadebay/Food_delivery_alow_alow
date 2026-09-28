@@ -71,9 +71,17 @@ class TileSeedService {
 
   static const _lastRunKey = 'map_tiles_seeded_at';
 
+  /// Eksik biten bir denemenin zamani. Kalici olarak alinamayan tek bir karo
+  /// yuzunden her aciliste bastan 1500+ karo dolasilmasin diye ayri tutuluyor.
+  static const _lastAttemptKey = 'map_tiles_attempted_at';
+
   /// How often the area is refreshed. Streets change slowly; a week keeps the
   /// map current without spending the customer's data on it.
   static const refreshInterval = Duration(days: 7);
+
+  /// Eksik biten denemeden sonra beklenen sure. Gecici bir ag sorunu makul
+  /// bir sure icinde yeniden denensin, ama uygulama her acildiginda degil.
+  static const retryInterval = Duration(hours: 6);
 
   /// The whole delivery area, at the zooms a customer actually browses.
   ///
@@ -112,15 +120,22 @@ class TileSeedService {
   /// map, not a broken app.
   static Future<void> seedIfDue(SharedPreferences prefs) async {
     if (_running) return;
-    final last = prefs.getInt(_lastRunKey);
-    if (last != null) {
+
+    bool fresh(int? stamp, Duration within, String what) {
+      if (stamp == null) return false;
       final age = DateTime.now().difference(
-        DateTime.fromMillisecondsSinceEpoch(last),
+        DateTime.fromMillisecondsSinceEpoch(stamp),
       );
-      if (!age.isNegative && age < refreshInterval) {
-        _log('skipped — last run ${age.inDays}d ago');
-        return;
-      }
+      if (age.isNegative || age >= within) return false;
+      _log('skipped — $what ${age.inHours}h ago');
+      return true;
+    }
+
+    if (fresh(prefs.getInt(_lastRunKey), refreshInterval, 'last full run')) {
+      return;
+    }
+    if (fresh(prefs.getInt(_lastAttemptKey), retryInterval, 'last attempt')) {
+      return;
     }
 
     _running = true;
@@ -128,16 +143,34 @@ class TileSeedService {
       final tiles = plan();
       _log('starting — ${tiles.length} tiles');
       final failed = await _download(tiles);
-      // Only a clean run resets the clock. A partial one is retried on the
-      // next launch rather than left half-filled for a week.
+      final now = DateTime.now().millisecondsSinceEpoch;
+      // Yalnizca yeniden denemeye deger hatalar saati durduruyor. Sunucunun
+      // "boyle bir karo yok" demesi (404) bir cevaptir; onu hata sayinca
+      // `failed` hicbir zaman sifirlanmiyor, tarih hic yazilmiyor ve seed her
+      // aciliste bastan kosuyordu — kullaniciya her seferinde yeniden
+      // indiriyormus gibi gorunmesinin sebebi buydu.
       if (failed == 0) {
-        await prefs.setInt(_lastRunKey, DateTime.now().millisecondsSinceEpoch);
+        await prefs.setInt(_lastRunKey, now);
+        await prefs.remove(_lastAttemptKey);
         _log('done — ${tiles.length} tiles cached');
       } else {
-        _log('incomplete — $failed of ${tiles.length} failed, will retry');
+        // Eksik bitti: tam kosma saatini baslatmiyoruz ama denemeyi de
+        // isaretliyoruz, boylece bir sonraki deneme `retryInterval` sonra.
+        await prefs.setInt(_lastAttemptKey, now);
+        _log(
+          'incomplete — $failed of ${tiles.length} could not be fetched, '
+          'retrying in ${retryInterval.inHours}h',
+        );
       }
     } catch (error) {
-      _log('failed — $error');
+      // Kosmanin tamami dustuyse de denemeyi isaretle: aksi halde bu hata
+      // kalici oldugunda (ornegin onbellek deposu acilamiyorsa) seed her
+      // aciliste bastan baslar.
+      await prefs.setInt(
+        _lastAttemptKey,
+        DateTime.now().millisecondsSinceEpoch,
+      );
+      _log('failed — $error, retrying in ${retryInterval.inHours}h');
     } finally {
       _running = false;
     }
@@ -220,8 +253,12 @@ class TileSeedService {
           final response = await dio.get<List<int>>(
             tile.url(AppConfig.mapTileUrl),
           );
-          if (response.statusCode != 200) failed++;
+          final code = response.statusCode ?? 0;
+          // 404/410: bu karo o yakinlastirmada yok. Cevap alindi, onbellege
+          // yazacak bir sey yok ve tekrar sormanin anlami da yok.
+          if (code != 200 && code != 404 && code != 410) failed++;
         } catch (_) {
+          // Zaman asimi, baglanti kopmasi: gecici, yeniden denmeye deger.
           failed++;
         }
         done++;

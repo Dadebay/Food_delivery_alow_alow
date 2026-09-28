@@ -126,6 +126,14 @@ class CatalogRepository {
         variantLabel: json['variantLabel'] as String?,
         variants: _parseVariants(json['variants']),
         imageUrls: gallery,
+        // Both are admin-set and both are absent on a server that predates
+        // them, so both stay null rather than defaulting to zero: "no value"
+        // and "worth no points" have to look different on the dish card.
+        //
+        // `prepMinutes` has been on the model all along but nothing ever
+        // filled it from the API — only the demo catalogue did.
+        prepMinutes: (json['preparationMinutes'] as num?)?.toInt(),
+        loyaltyPoints: (json['loyaltyPoints'] as num?)?.toInt(),
       );
     }).toList();
     assert(() {

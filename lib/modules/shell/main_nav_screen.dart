@@ -1,5 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../checkout/address_provider.dart';
+import '../auth/auth_provider.dart';
+import '../loyalty/loyalty_provider.dart';
 
 import '../../core/localization/locale_provider.dart';
 import '../../core/services/app_update_service.dart';
@@ -51,6 +56,20 @@ class _MainNavScreenState extends State<MainNavScreen> {
       // before this screen exists, so the parked value is read once here as
       // well as watched for later taps.
       _openPendingTab();
+      // Which delivery tariff the admin switched on, read once per session.
+      // It decides which endpoint prices delivery, so it has to land before
+      // the first quote; failing leaves the district pricing the app has
+      // always used.
+      unawaited(context.read<AddressProvider>().loadDeliveryConfig());
+      // The gift catalogue is public, so this runs for guests too — and it
+      // is what tells the app whether this server has loyalty at all. A 404
+      // here is how the Profile rows learn to stay hidden, before the
+      // customer can tap one.
+      unawaited(
+        context.read<LoyaltyProvider>().refresh(
+          signedIn: context.read<AuthProvider>().isSignedIn,
+        ),
+      );
     });
     _push.pendingTab.addListener(_openPendingTab);
   }

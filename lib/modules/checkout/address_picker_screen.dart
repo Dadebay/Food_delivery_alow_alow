@@ -153,20 +153,29 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
 
   Future<void> _reverseGeocode(LatLng point) async {
     setState(() => _locating = true);
-    final result = await _geocoder.reverseGeocode(point);
+    String? resolved;
+    try {
+      resolved = await _geocoder.reverseGeocode(point);
+    } finally {
+      // Whatever happened — an answer, a timeout, a pin that moved on — the
+      // wait is over. Leaving this set stranded the save button on a
+      // spinner with no way back, which is exactly what an unreachable
+      // server produced.
+      if (mounted) setState(() => _locating = false);
+    }
     // A plain `!=` would also reject a match on floating-point noise picked
     // up between here and the point being captured — a hair under a
     // millimetre of drift is still the same point.
     final stillOnPoint =
         (point.latitude - _center.latitude).abs() < 1e-9 &&
         (point.longitude - _center.longitude).abs() < 1e-9;
-    if (!mounted || !stillOnPoint) return;
+    final result = resolved;
+    if (!mounted || !stillOnPoint || result == null) return;
     setState(() {
-      _locating = false;
       // Pini tasimak "burasi olsun" demektir: gelen adres kosulsuz yaziliyor.
       // Ilce alani elle doldurulamiyor (bkz. `_ChosenAddressCard`), dolayisiyla
       // ustune yazilacak bir kullanici girdisi de yok.
-      if (result != null) _district.text = DeliveryAddress.tidyLine(result);
+      _district.text = DeliveryAddress.tidyLine(result);
     });
   }
 
@@ -246,7 +255,16 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
     _map.move(_center, AppConfig.pickZoom);
   }
 
-  bool get _canSave => _district.text.trim().isNotEmpty;
+  /// Save waits for the address to settle.
+  ///
+  /// Dragging the pin starts a lookup, and until it answers the district
+  /// field still holds the *previous* place. Saving in that window stored an
+  /// address that did not match the pin — the customer had moved the map,
+  /// seen the button available, and taken it as confirmation. It is also why
+  /// panning "worked" where searching did not: a pan happens to end with a
+  /// lookup, so the field caught up before anyone got that far.
+  bool get _canSave =>
+      !_dragging && !_locating && _district.text.trim().isNotEmpty;
 
   /// Fails loudly enough to act on: GPS off or permission refused both make
   /// `fetch()` return null, and saying nothing left the button looking
@@ -350,6 +368,14 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
                 minZoom: AppConfig.minZoom,
                 maxZoom: AppConfig.maxZoom,
                 backgroundColor: AppColors.white,
+                // Rotation off. Two fingers on a pinch-to-zoom turn the map a
+                // few degrees without anyone meaning to, and the tile layer
+                // only paints the upright rectangle — the corners outside it
+                // come out white. Nothing here needs a tilted north either:
+                // the customer is dropping a pin, not navigating.
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                ),
                 onPositionChanged: _onMapPositionChanged,
                 // Haritaya dokunmak "formu biraktim" demek: klavye kapaniyor
                 // ve panel yerine oturuyor. Aksi halde jaý/öý alanina yazip
@@ -639,6 +665,11 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
                                   const SizedBox(height: 16),
                                   AppButton(
                                     label: s.save,
+                                    // Spinner rather than a dead button: the
+                                    // wait is short and the customer should
+                                    // see that something is happening, not
+                                    // wonder what they did wrong.
+                                    busy: _dragging || _locating,
                                     onPressed: _canSave ? _save : null,
                                   ),
                                 ],

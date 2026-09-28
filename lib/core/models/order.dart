@@ -2,6 +2,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'cart_item.dart';
 import 'delivery_address.dart';
+import 'order_quote.dart';
 import 'order_status.dart';
 
 /// One order the customer placed — from checkout through the tracking screen
@@ -31,6 +32,9 @@ class CustomerOrder {
     this.etaMinutesLow,
     this.etaMinutesHigh,
     this.rating,
+    this.gifts = const [],
+    this.loyaltyPointsEarned,
+    this.loyaltyPointsSpent,
   });
 
   final String id;
@@ -43,6 +47,25 @@ class CustomerOrder {
   final double subtotal;
   final double deliveryFee;
   final double discount;
+
+  /// The gifts bought with this order, as a snapshot of the moment it was
+  /// placed: name, photo and point cost are the ones stored on the order,
+  /// not looked up in today's gift catalogue. A gift that has since been
+  /// hidden or repriced must still show here the way it was bought.
+  final List<QuotedGift> gifts;
+
+  /// Points this order earned and spent. Null on an order from a server
+  /// that does not do loyalty — shown as nothing rather than as zero.
+  ///
+  /// Earned points land only at `DELIVERED`, so a value here on an order
+  /// still on its way is what it *will* earn.
+  final int? loyaltyPointsEarned;
+  final int? loyaltyPointsSpent;
+
+  bool get hasLoyalty =>
+      gifts.isNotEmpty ||
+      loyaltyPointsEarned != null ||
+      loyaltyPointsSpent != null;
 
   /// "Сдача с какой суммы" — `null` means no change needed.
   final double? changeFrom;

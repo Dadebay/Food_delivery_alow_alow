@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../core/data/order_repository.dart';
 import '../../core/constants/app_config.dart';
+import '../../core/models/cart_gift.dart';
 import '../../core/models/cart_item.dart';
 import '../../core/models/delivery_address.dart';
 import '../../core/models/order.dart';
@@ -66,6 +68,8 @@ class OrderProvider extends ChangeNotifier {
     String? promoCode,
     int? deliveryEtrapId,
     String? orderComment,
+    List<CartGift> gifts = const [],
+    String? idempotencyKey,
   }) async {
     final order = await _repository.place(
       items: items,
@@ -76,6 +80,8 @@ class OrderProvider extends ChangeNotifier {
       promoCode: promoCode,
       deliveryEtrapId: deliveryEtrapId,
       orderComment: orderComment,
+      gifts: gifts,
+      idempotencyKey: idempotencyKey,
     );
     _orders = [order, ..._orders];
     notifyListeners();
@@ -92,11 +98,15 @@ class OrderProvider extends ChangeNotifier {
     required double subtotal,
     int? deliveryEtrapId,
     String? promoCode,
+    List<CartGift> gifts = const [],
+    LatLng? point,
   }) => _repository.quote(
     items: items,
     subtotal: subtotal,
     deliveryEtrapId: deliveryEtrapId,
     promoCode: promoCode,
+    gifts: gifts,
+    point: point,
   );
 
   Future<void> rate(CustomerOrder order, int stars) async {

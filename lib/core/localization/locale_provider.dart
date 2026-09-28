@@ -26,6 +26,12 @@ class LocaleProvider extends ChangeNotifier {
 
   static const List<AppStrings> supported = [StringsRu(), StringsTm()];
 
+  /// The chosen language outside the widget tree — for the few places that
+  /// have to produce text with no context to read a provider from, such as
+  /// the notification scheduled when the cart changes.
+  static AppStrings stringsFrom(SharedPreferences prefs) =>
+      prefs.getString(_key) == 'tk' ? const StringsTm() : const StringsRu();
+
   Future<void> select(AppStrings strings) async {
     _strings = strings;
     // Always persist, even re-picking the current default — that's what

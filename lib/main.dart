@@ -9,12 +9,17 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
+import 'core/models/cart_item.dart';
+import 'core/services/cart_reminder_service.dart';
 import 'core/data/auth_repository.dart';
 import 'core/data/address_repository.dart';
 import 'core/data/catalog_repository.dart';
 import 'core/data/contact_repository.dart';
 import 'core/data/marketing_repository.dart';
+import 'core/data/delivery_repository.dart';
+import 'core/data/loyalty_repository.dart';
 import 'core/data/order_repository.dart';
+import 'core/data/ordering_hours_repository.dart';
 import 'core/localization/locale_provider.dart';
 import 'core/network/api_client.dart';
 import 'core/services/connectivity_service.dart';
@@ -31,6 +36,8 @@ import 'modules/cart/cart_provider.dart';
 import 'modules/catalog/catalog_provider.dart';
 import 'modules/home/banner_provider.dart';
 import 'modules/checkout/address_provider.dart';
+import 'modules/checkout/ordering_hours_provider.dart';
+import 'modules/loyalty/loyalty_provider.dart';
 import 'modules/onboarding/onboarding_provider.dart';
 import 'modules/orders/order_provider.dart';
 import 'modules/shell/tab_switcher.dart';
@@ -43,8 +50,7 @@ Future<void> main() async {
   // is windowed. Measured from the window rather than the platform name: a
   // foldable in its unfolded state deserves the same freedom.
   final view = PlatformDispatcher.instance.views.first;
-  final shortestSide =
-      view.physicalSize.shortestSide / view.devicePixelRatio;
+  final shortestSide = view.physicalSize.shortestSide / view.devicePixelRatio;
   if (shortestSide < 600) {
     try {
       await SystemChrome.setPreferredOrientations([
@@ -104,7 +110,21 @@ Future<void> main() async {
   final marketingRepository = MarketingRepository(api: api);
   final contactRepository = ContactRepository(api: api);
   final orderRepository = OrderRepository(api: api);
+  final loyaltyRepository = LoyaltyRepository(api: api);
+  final deliveryRepository = DeliveryRepository(api: api);
+  final orderingHoursRepository = OrderingHoursRepository(api: api);
   final geocodingService = GeocodingService(api: api);
+  final cart = CartProvider(prefs: prefs)
+    ..onChanged = (items) => _onCartChanged(items, prefs);
+
+  // A cart may contain dishes from several cafes, while the home page only
+  // loads the currently selected cafe. Restore against the combined live
+  // catalogue once, otherwise lines from every other cafe would disappear
+  // after an app restart. This remains fire-and-forget so a slow catalogue
+  // request never holds up the first frame.
+  unawaited(
+    catalogRepository.dishes().then(cart.restore).catchError((Object _) {}),
+  );
 
   runApp(
     MultiProvider(
@@ -115,6 +135,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => LocaleProvider(prefs)),
         ChangeNotifierProvider(create: (_) => OnboardingProvider(prefs)),
         ChangeNotifierProvider(create: (_) => AuthProvider(authRepository)),
+        ChangeNotifierProvider.value(value: cart),
         ChangeNotifierProvider(
           create: (_) =>
               CatalogProvider(repository: catalogRepository, prefs: prefs),
@@ -124,9 +145,18 @@ Future<void> main() async {
         ),
         Provider.value(value: contactRepository),
         Provider.value(value: geocodingService),
-        ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(
-          create: (_) => AddressProvider(repository: addressRepository),
+          create: (_) => AddressProvider(
+            repository: addressRepository,
+            delivery: deliveryRepository,
+          ),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => LoyaltyProvider(repository: loyaltyRepository),
+        ),
+        ChangeNotifierProvider(
+          create: (_) =>
+              OrderingHoursProvider(repository: orderingHoursRepository),
         ),
         ChangeNotifierProvider(
           create: (_) => OrderProvider(repository: orderRepository),
@@ -134,6 +164,29 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => TabSwitcher()),
       ],
       child: const FoodDeliveryApp(),
+    ),
+  );
+}
+
+/// Books or cancels the evening reminder as the basket fills and empties.
+///
+/// Lives here rather than in [CartProvider] so the cart stays a list of
+/// dishes: it should not have to know what a notification is, or which
+/// language the customer reads.
+void _onCartChanged(List<CartItem> items, SharedPreferences prefs) {
+  if (items.isEmpty) {
+    unawaited(CartReminderService.instance.cancel());
+    return;
+  }
+  final strings = LocaleProvider.stringsFrom(prefs);
+  // Two names is enough to recognise the basket; the rest would be a list
+  // nobody reads on a lock screen.
+  final named = items.take(2).map((i) => i.displayName).join(', ');
+  final dishes = items.length > 2 ? '$named…' : named;
+  unawaited(
+    CartReminderService.instance.schedule(
+      title: strings.cartReminderTitle,
+      body: strings.cartReminderBody(dishes),
     ),
   );
 }

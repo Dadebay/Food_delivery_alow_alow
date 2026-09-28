@@ -1,3 +1,4 @@
+import '../utils/json_number.dart';
 import '../constants/app_config.dart';
 
 /// The authoritative delivery price for one map point and order subtotal —
@@ -60,10 +61,9 @@ class DeliveryQuote {
   factory DeliveryQuote.fromJson(Map<String, dynamic> json) {
     final etrap = json['etrap'] as Map<String, dynamic>?;
     return DeliveryQuote(
-      fee: (json['fee'] as num).toDouble(),
-      price: (json['price'] as num).toDouble(),
-      freeDeliveryThreshold: (json['freeDeliveryThreshold'] as num?)
-          ?.toDouble(),
+      fee: readDouble(json['fee']) ?? 0,
+      price: readDouble(json['price']) ?? 0,
+      freeDeliveryThreshold: readDouble(json['freeDeliveryThreshold']),
       // The district arrives nested under `etrap`, but a flat `etrapId`
       // alongside it is read too: missing the id is not cosmetic — checkout
       // sends it back with the order, and without it the server prices

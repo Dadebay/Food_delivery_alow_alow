@@ -19,6 +19,9 @@ import '../../core/widgets/responsive.dart';
 import '../auth/auth_provider.dart';
 import '../auth/login_screen.dart';
 import '../catalog/catalog_provider.dart';
+import '../loyalty/gift_shop_screen.dart';
+import '../loyalty/loyalty_provider.dart';
+import '../loyalty/my_points_screen.dart';
 import '../favorites/favorites_screen.dart';
 import '../checkout/address_provider.dart';
 import 'saved_addresses_screen.dart';
@@ -45,6 +48,7 @@ class ProfileScreen extends StatelessWidget {
     final locale = context.read<LocaleProvider>();
     final auth = context.watch<AuthProvider>();
     final favorites = context.watch<CatalogProvider>().favorites.length;
+    final loyalty = context.watch<LoyaltyProvider>();
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -91,6 +95,33 @@ class ProfileScreen extends StatelessWidget {
             subtitle: '$favorites',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FavoritesScreen())),
           ),
+          // Loyalty lives behind two rows rather than a nav tab. Both are
+          // hidden outright when the server has no loyalty endpoints — see
+          // LoyaltyProvider.unavailable. A row that opens a screen which
+          // can only ever say "not supported" is worse than no row.
+          if (!loyalty.unavailable) ...[
+            if (auth.isSignedIn)
+              _Tile(
+                icon: AppIcons.gift,
+                title: s.myPoints,
+                subtitle: loyalty.balance == null
+                    ? s.myPointsSubtitle
+                    : s.pointsValue(loyalty.balance!),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MyPointsScreen()),
+                ),
+              ),
+            // Guests may browse the gift shop; choosing one asks them to
+            // sign in, so the row itself does not require an account.
+            _Tile(
+              icon: AppIcons.discount,
+              title: s.giftShop,
+              subtitle: s.giftShopSubtitle,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const GiftShopScreen()),
+              ),
+            ),
+          ],
           if (auth.isSignedIn)
             _Tile(
               icon: AppIcons.location,
@@ -537,6 +568,7 @@ class _IdentityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final points = context.watch<LoyaltyProvider>().balance;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -587,6 +619,30 @@ class _IdentityCard extends StatelessWidget {
                 Text(name, style: AppText.h2.copyWith(fontSize: 17), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 3),
                 Text(phone, style: AppText.bodyMuted.copyWith(fontSize: 13)),
+                // Null means "not loaded yet", never "no points" — showing a
+                // zero there would tell the customer something untrue, so the
+                // row simply is not there until the balance arrives.
+                if (points != null) ...[
+                  const SizedBox(height: 7),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.brand.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const HugeIcon(icon: AppIcons.gift, color: AppColors.onBrand, size: 13),
+                        const SizedBox(width: 5),
+                        Text(
+                          context.sr.pointsValue(points),
+                          style: AppText.chip.copyWith(color: AppColors.onBrand, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

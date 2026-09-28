@@ -247,7 +247,15 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
   String _meta(Dish dish, AppStrings s) {
     final parts = <String>[];
     if (dish.portionLabel != null) parts.add(dish.portionLabel!);
+    // How long *this dish* takes to cook, as the admin set it. Not an ETA
+    // for the order: the API returns no such thing, and presenting it as
+    // one would promise a delivery time nobody committed to.
     if (dish.prepMinutes != null) parts.add(s.minutesShort(dish.prepMinutes!));
+    // Points for one unit. The cart shows the line's own total, which the
+    // server has already multiplied out.
+    if (dish.loyaltyPoints != null && dish.loyaltyPoints! > 0) {
+      parts.add(s.pointsPerUnit(dish.loyaltyPoints!));
+    }
     return parts.join(' · ');
   }
 }

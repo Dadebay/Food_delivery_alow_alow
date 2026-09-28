@@ -26,8 +26,12 @@ import '../catalog/catalog_provider.dart';
 import '../orders/order_provider.dart';
 import '../orders/order_track_screen.dart';
 import '../shell/tab_switcher.dart';
+import '../../core/models/ordering_hours.dart';
+import '../../core/utils/uuid_v4.dart';
+import '../loyalty/loyalty_provider.dart';
 import 'address_picker_screen.dart';
 import 'address_provider.dart';
+import 'ordering_hours_provider.dart';
 
 /// Checkout — address, order lines, "Сдача с какой суммы", cash/card choice
 /// (card is greyed out — phase 2, proposal slide 14), price breakdown, place
@@ -70,6 +74,44 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _promoLoading = false;
   String? _promoError;
 
+  /// The `idempotencyKey` for the current basket.
+  ///
+  /// Generated once per basket and reused on every retry of that same
+  /// basket, so a send that timed out can be repeated without risking a
+  /// second order — the server recognises the key and returns the order it
+  /// already has. Regenerated only when the customer deliberately changes
+  /// what they are ordering, which is a different order and deserves a
+  /// different key. Never regenerated while the outcome of a send is
+  /// unknown: that is precisely the case this exists to protect.
+  String? _idempotencyKey;
+
+  /// The basket the current [_idempotencyKey] belongs to.
+  String? _keyedBasket;
+
+  /// A fingerprint of everything that makes this order what it is. Two
+  /// sends with the same fingerprint are the same order being retried; a
+  /// different one is a new order.
+  String _basketSignature(CartProvider cart) {
+    final items = cart.items
+        .map((i) => '${i.dish.id}:${i.variant?.id ?? ''}:${i.quantity}')
+        .toList()
+      ..sort();
+    final gifts = cart.gifts
+        .map((g) => '${g.gift.id}:${g.quantity}')
+        .toList()
+      ..sort();
+    return '${items.join(',')}|${gifts.join(',')}';
+  }
+
+  String _keyFor(CartProvider cart) {
+    final signature = _basketSignature(cart);
+    if (_idempotencyKey == null || _keyedBasket != signature) {
+      _idempotencyKey = uuidV4();
+      _keyedBasket = signature;
+    }
+    return _idempotencyKey!;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +135,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // even when they already have an address on file.
       final addresses = context.read<AddressProvider>();
       if (addresses.address == null) addresses.load();
+      // Whether orders are being taken at all. The provider re-reads this
+      // by itself when the app returns from the background, so a phone left
+      // on this screen overnight does not keep showing yesterday's "open".
+      unawaited(context.read<OrderingHoursProvider>().refresh());
     });
   }
 
@@ -138,10 +184,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   /// Re-quotes `POST /orders/quote` whenever the cart or the resolved
   /// delivery etrap changed — this is the only place the delivery fee, the
   /// promo discount and the grand total come from.
-  void _maybeRefreshOrderQuote(double subtotal, int? etrapId) {
-    if (_quotedSubtotal == subtotal && _quotedEtrapId == etrapId) return;
+  /// The gift selection the last quote was priced for — changing it changes
+  /// the points, so it re-quotes exactly as a changed subtotal does.
+  String? _quotedGifts;
+
+  void _maybeRefreshOrderQuote(double subtotal, int? etrapId, String gifts) {
+    if (_quotedSubtotal == subtotal &&
+        _quotedEtrapId == etrapId &&
+        _quotedGifts == gifts) {
+      return;
+    }
     _quotedSubtotal = subtotal;
     _quotedEtrapId = etrapId;
+    _quotedGifts = gifts;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadQuote();
     });
@@ -172,6 +227,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         subtotal: cart.subtotal,
         deliveryEtrapId: addresses.deliveryEtrapId,
         promoCode: promoCode ?? (_promoApplied ? _promoCode.text.trim() : null),
+        gifts: cart.gifts,
+        // Distance pricing needs the point to price against. Harmless in
+        // district mode, where the server ignores it in favour of the
+        // etrap id above.
+        point: addresses.address?.point,
       );
       if (!mounted) return;
       setState(() {
@@ -204,6 +264,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // estimate for the rest of the session.
         _quotedSubtotal = null;
         _quotedEtrapId = null;
+        _quotedGifts = null;
       }
     } finally {
       if (applyingPromo && mounted) setState(() => _promoLoading = false);
@@ -279,7 +340,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final cart = context.read<CartProvider>();
     final orders = context.read<OrderProvider>();
     final addresses = context.read<AddressProvider>();
+    // Read before the await: the refreshes below run after it, and by then
+    // this screen may already be gone.
+    final loyalty = context.read<LoyaltyProvider>();
+    final signedIn = context.read<AuthProvider>().isSignedIn;
     final s = context.sr;
+
+    // The key is resolved before the request and deliberately not cleared
+    // in `finally`: if this send times out, the next attempt must carry the
+    // same key so the server can recognise the order it may already have.
+    final idempotencyKey = _keyFor(cart);
 
     setState(() => _placing = true);
     try {
@@ -291,10 +361,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         promoCode: _promoCode.text.trim().isEmpty ? null : _promoCode.text.trim(),
         deliveryEtrapId: addresses.deliveryEtrapId,
         orderComment: _orderComment.text.trim().isEmpty ? null : _orderComment.text.trim(),
+        gifts: cart.gifts,
+        idempotencyKey: idempotencyKey,
       );
       await AnalyticsService.instance.orderPlaced(order);
       cart.clear();
       _orderComment.clear();
+      // This basket is spent; the next one is a different order.
+      _idempotencyKey = null;
+      _keyedBasket = null;
+      // Placing an order spends gift points and reserves stock, so both the
+      // balance and the catalogue have moved.
+      unawaited(loyalty.refresh(signedIn: signedIn));
       if (!mounted) return;
 
       await showDialog<void>(context: context, barrierColor: Colors.black.withValues(alpha: 0.55), builder: (_) => const _OrderAcceptedDialog());
@@ -312,6 +390,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_orderErrorMessage(error, s))));
         _refreshCatalogAfterRejection(error);
+        _refreshAfterConflict(error);
       }
     } finally {
       if (mounted) setState(() => _placing = false);
@@ -325,6 +404,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   /// rejected order sends the catalogue back for a fresh read. Only a real
   /// rejection counts: a lost connection says nothing about the menu, and
   /// re-reading it on every flaky network is a needless round trip.
+  /// A 409 means the world moved between the quote and the send: points
+  /// spent elsewhere, a gift sold out, the shop closing. Nothing local is
+  /// treated as successful — the cart, including the gifts, is kept exactly
+  /// as it was, and everything that could have changed is re-read so the
+  /// customer confirms against the new state rather than the old one.
+  void _refreshAfterConflict(Object error) {
+    if (error is! OrderPlacementException) return;
+    if (error.statusCode != 409) return;
+    unawaited(
+      context.read<LoyaltyProvider>().refresh(
+        signedIn: context.read<AuthProvider>().isSignedIn,
+      ),
+    );
+    unawaited(context.read<OrderingHoursProvider>().refresh());
+    // Forget the quote fingerprint so the next build prices the cart again
+    // instead of trusting the one the server just refused.
+    _quotedSubtotal = null;
+    _quotedEtrapId = null;
+    _quotedGifts = null;
+  }
+
   void _refreshCatalogAfterRejection(Object error) {
     if (error is! OrderPlacementException) return;
     unawaited(context.read<CatalogProvider>().refreshCatalog());
@@ -371,7 +471,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       cart.subtotal,
       hasQuote: addressProvider.quote != null,
     );
-    _maybeRefreshOrderQuote(cart.subtotal, addressProvider.deliveryEtrapId);
+    final hours = context.watch<OrderingHoursProvider>();
+    final loyalty = context.watch<LoyaltyProvider>();
+    _maybeRefreshOrderQuote(
+      cart.subtotal,
+      addressProvider.deliveryEtrapId,
+      cart.gifts.map((g) => '${g.gift.id}:${g.quantity}').join(','),
+    );
     final quote = _quote;
 
     // `/orders/quote` prices delivery from the `deliveryEtrapId` this screen
@@ -431,19 +537,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const SizedBox(height: 12),
           _OrderCommentField(controller: _orderComment, strings: s),
           const SizedBox(height: 12),
-          _PromoField(
-            controller: _promoCode,
-            strings: s,
-            applied: _promoApplied,
-            loading: _promoLoading,
-            discount: quote?.discount ?? 0,
-            error: _promoError,
-            onApply: _applyPromo,
-            onRemove: _removePromo,
-          ),
-          const SizedBox(height: 12),
+          if (AppConfig.showPromoCode) ...[
+            _PromoField(
+              controller: _promoCode,
+              strings: s,
+              applied: _promoApplied,
+              loading: _promoLoading,
+              discount: quote?.discount ?? 0,
+              error: _promoError,
+              onApply: _applyPromo,
+              onRemove: _removePromo,
+            ),
+            const SizedBox(height: 12),
+          ],
           _PaymentCard(strings: s),
           const SizedBox(height: 12),
+          // Only when this server does loyalty at all, and only when there
+          // is something to say: no gifts chosen and no points moving means
+          // an empty card, which reads as a feature that is broken rather
+          // than one that is simply not in play for this order.
+          if (!loyalty.unavailable && (cart.hasGifts || (quote?.hasLoyalty ?? false))) ...[
+            _LoyaltyCard(cart: cart, quote: quote, strings: s),
+            const SizedBox(height: 12),
+          ],
           _TotalsCard(
             cart: cart,
             quote: quote,
@@ -455,12 +571,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ],
         ),
       ),
-      bottomNavigationBar: _BottomBar(cart: cart, quote: quote, total: total, strings: s, busy: _placing, onPlaceOrder: (cart.isEmpty || (address != null && quote == null))
-          ? null
-          // With no address there is no quote to wait for, and a dead
-          // button explains nothing. Let the tap through so the handler
-          // can say what is missing and offer the map.
-          : () => _handlePlaceOrder(address)),
+      bottomNavigationBar: _BottomBar(
+        cart: cart,
+        quote: quote,
+        total: total,
+        strings: s,
+        busy: _placing,
+        // The shop being shut is the one closed door with an explanation
+        // attached, so the bar shows the window instead of a dead button.
+        closedHours: hours.blocksOrdering ? hours.hours : null,
+        onPlaceOrder: (cart.isEmpty ||
+                hours.blocksOrdering ||
+                (address != null && quote == null))
+            ? null
+            // With no address there is no quote to wait for, and a dead
+            // button explains nothing. Let the tap through so the handler
+            // can say what is missing and offer the map.
+            : () => _handlePlaceOrder(address),
+      ),
     );
   }
 }
@@ -1131,10 +1259,15 @@ class _Row extends StatelessWidget {
 /// whole time the customer scrolls the sections above, so the price never
 /// feels like a surprise revealed only at the very bottom.
 class _BottomBar extends StatelessWidget {
-  const _BottomBar({required this.cart, required this.quote, required this.total, required this.strings, required this.busy, required this.onPlaceOrder});
+  const _BottomBar({required this.cart, required this.quote, required this.total, required this.strings, required this.busy, required this.onPlaceOrder, this.closedHours});
 
   final CartProvider cart;
   final OrderQuote? quote;
+
+  /// Set only while the server says it is not taking orders. The cart stays
+  /// exactly as it is — nothing is cleared, the customer simply cannot send
+  /// it yet.
+  final OrderingHours? closedHours;
 
   /// The same number the totals card shows — see [_TotalsCard.deliveryFee].
   final double total;
@@ -1157,6 +1290,10 @@ class _BottomBar extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (closedHours != null) ...[
+                _ClosedNotice(hours: closedHours!, strings: strings),
+                const SizedBox(height: 12),
+              ],
               Row(
                 children: [
                   Text(strings.dishesCount(cart.itemCount), style: AppText.bodyMuted),
@@ -1180,6 +1317,166 @@ class _BottomBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The gifts riding along with this order, and what the points do.
+///
+/// Every number here comes from the quote. The app does not add up gift
+/// costs or work out what the order will earn — the server prices both, and
+/// a second opinion computed on the phone is exactly the disagreement a
+/// customer would notice at the worst moment.
+class _LoyaltyCard extends StatelessWidget {
+  const _LoyaltyCard({
+    required this.cart,
+    required this.quote,
+    required this.strings,
+  });
+
+  final CartProvider cart;
+  final OrderQuote? quote;
+  final AppStrings strings;
+
+  @override
+  Widget build(BuildContext context) {
+    // The server's copy once it has answered; the local selection until
+    // then, so the card is not blank while the quote is in flight.
+    final gifts = quote?.gifts ?? const [];
+    final balance = quote?.pointsBalance;
+    final spent = quote?.loyaltyPointsSpent;
+    final earned = quote?.loyaltyPointsEarned;
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(strings.giftsInCart, style: AppText.h2.copyWith(fontSize: 16)),
+          const SizedBox(height: 10),
+          if (gifts.isNotEmpty)
+            for (final gift in gifts) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${gift.name} ×${gift.quantity}',
+                      style: AppText.body,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    strings.pointsValue(gift.totalPoints),
+                    style: AppText.body.copyWith(color: AppColors.goldInk),
+                  ),
+                  IconButton(
+                    tooltip: strings.removeGift,
+                    icon: const HugeIcon(
+                      icon: AppIcons.delete,
+                      color: AppColors.textMuted,
+                      size: 18,
+                    ),
+                    onPressed: () => context.read<CartProvider>().removeGift(gift.giftId),
+                  ),
+                ],
+              ),
+            ]
+          else
+            for (final line in cart.gifts) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${line.gift.name} ×${line.quantity}',
+                      style: AppText.body,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text(
+                    strings.pointsValue(line.totalPoints),
+                    style: AppText.body.copyWith(color: AppColors.goldInk),
+                  ),
+                  IconButton(
+                    tooltip: strings.removeGift,
+                    icon: const HugeIcon(
+                      icon: AppIcons.delete,
+                      color: AppColors.textMuted,
+                      size: 18,
+                    ),
+                    onPressed: () => context.read<CartProvider>().removeGift(line.gift.id),
+                  ),
+                ],
+              ),
+            ],
+          if (balance != null || spent != null || earned != null) ...[
+            const Divider(height: 20),
+            if (balance != null)
+              _Row(
+                label: strings.pointsBalanceLabel,
+                value: strings.pointsValue(balance),
+              ),
+            if (spent != null && spent > 0) ...[
+              const SizedBox(height: 6),
+              _Row(
+                label: strings.pointsSpentOnGifts,
+                value: '-${strings.pointsValue(spent)}',
+                valueColor: AppColors.orange,
+              ),
+            ],
+            if (earned != null && earned > 0) ...[
+              const SizedBox(height: 6),
+              // Deliberately worded as something that has not happened yet:
+              // these land only once the order reaches DELIVERED, and they
+              // cannot pay for a gift in this same order.
+              _Row(
+                label: strings.pointsEarnedAfterDelivery,
+                value: '+${strings.pointsValue(earned)}',
+                valueColor: AppColors.success,
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// "We are closed" with the window to come back in.
+///
+/// The times are shown as the server wrote them, with its timezone, rather
+/// than converted to the phone's: the restaurant's hours are a fact about
+/// the restaurant, and a customer travelling with their phone on another
+/// timezone should still read the shop's own opening time.
+class _ClosedNotice extends StatelessWidget {
+  const _ClosedNotice({required this.hours, required this.strings});
+
+  final OrderingHours hours;
+  final AppStrings strings;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: AppColors.goldSoft,
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          strings.orderingClosedTitle,
+          style: AppText.h2.copyWith(fontSize: 14, color: AppColors.goldInk),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          hours.hasWindow
+              ? strings.orderingClosedMessage(hours.opensAt!, hours.closesAt!)
+              : strings.orderingClosedNow,
+          style: AppText.bodyMuted.copyWith(fontSize: 12),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Shown instead of silently failing when a signed-out customer taps place

@@ -17,6 +17,7 @@ class Dish {
     this.discountPercent,
     this.portionLabel,
     this.prepMinutes,
+    this.loyaltyPoints,
     this.isFavorite = false,
     this.pricingType = DishPricingType.fixed,
     this.minPrice,
@@ -51,6 +52,15 @@ class Dish {
   /// "4 шт", "3 шампура" — how the portion is counted.
   final String? portionLabel;
   final int? prepMinutes;
+
+  /// Loyalty points this dish earns, **per single unit**, credited only once
+  /// the order reaches `DELIVERED`. The cart must not multiply this itself:
+  /// the quote comes back with the line's own total, already multiplied by
+  /// the server.
+  ///
+  /// Null on a server that does not know about loyalty yet, and on a dish
+  /// the admin has not given a value to — both mean "show nothing".
+  final int? loyaltyPoints;
 
   /// Toggled locally by [CatalogProvider.toggleFavorite]; this is what the
   /// heart icon on the dish card reflects.

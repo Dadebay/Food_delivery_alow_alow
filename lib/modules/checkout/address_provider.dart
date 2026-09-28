@@ -3,18 +3,63 @@ import 'package:latlong2/latlong.dart';
 
 import '../../core/constants/app_config.dart';
 import '../../core/models/delivery_address.dart';
+import '../../core/models/delivery_config.dart';
 import '../../core/models/delivery_quote.dart';
 import '../../core/models/saved_address.dart';
 import '../../core/data/address_repository.dart';
+import '../../core/data/delivery_repository.dart';
 
 /// The customer's current delivery address — shown in the home header and
 /// pre-filled on checkout. `null` until they pick a point on the map at
 /// least once; nothing is invented on their behalf.
 class AddressProvider extends ChangeNotifier {
-  AddressProvider({required AddressRepository repository})
-    : _repository = repository;
+  AddressProvider({
+    required AddressRepository repository,
+    DeliveryRepository? delivery,
+  }) : _repository = repository,
+       _delivery = delivery;
 
   final AddressRepository _repository;
+
+  /// The tariff endpoints. Optional so existing tests can build a provider
+  /// without them; when absent the provider behaves exactly as it did
+  /// before — district pricing through `POST /delivery/quote`.
+  final DeliveryRepository? _delivery;
+
+  /// Which tariff the administrator switched on. Assumed to be district
+  /// pricing until `GET /delivery/config` says otherwise — that is what the
+  /// app has always done and what a server without the endpoint means.
+  DeliveryConfig _config = DeliveryConfig.areaPricing;
+  DeliveryConfig get deliveryConfig => _config;
+
+  /// The last distance-mode answer, kept for its `validUntil`.
+  TariffQuote? _tariff;
+  TariffQuote? get tariff => _tariff;
+
+  /// Reads the pricing mode once, at startup. A failure leaves district
+  /// pricing in place rather than blocking checkout.
+  Future<void> loadDeliveryConfig() async {
+    final delivery = _delivery;
+    if (delivery == null) return;
+    final config = await delivery.config();
+    if (config.distancePricingEnabled == _config.distancePricingEnabled) {
+      _config = config;
+      return;
+    }
+    _log(
+      'pricing mode ${config.distancePricingEnabled ? "DISTANCE (per km)" : "AREA (per etrap)"}',
+    );
+    _config = config;
+    // The mode decides which endpoint prices the next request, so whatever
+    // is on screen was priced by the other one.
+    _quote = null;
+    _tariff = null;
+    notifyListeners();
+  }
+
+  /// True when the current price is past the server's own expiry and has to
+  /// be asked for again. Only distance quotes carry one.
+  bool get quoteExpired => _tariff?.isExpired ?? false;
   DeliveryAddress? _address;
   List<SavedAddress> _saved = const [];
   bool _loading = false;
@@ -77,23 +122,53 @@ class AddressProvider extends ChangeNotifier {
       }
       return;
     }
-    _log('requesting   ${_describe(_address!)} subtotal=$subtotal');
+    final byDistance =
+        _config.distancePricingEnabled && _delivery != null;
+    _log(
+      'requesting   ${_describe(_address!)} subtotal=$subtotal '
+      'via ${byDistance ? "tariff-quote (per km)" : "delivery/quote (per etrap)"}',
+    );
     _quoting = true;
     notifyListeners();
-    final DeliveryQuote? result;
+    DeliveryQuote? result;
     try {
-      result = await _repository.quote(point: point, subtotal: subtotal);
+      if (byDistance) {
+        // Distance pricing: the server picks the branch, measures, applies
+        // the day or night rate, the 15 TMT minimum and its own rounding.
+        // None of that is repeated here — the app only carries the number.
+        final tariff = await _delivery.tariffQuote(
+          point: point,
+          subtotal: subtotal,
+        );
+        _tariff = tariff;
+        result = tariff == null
+            ? null
+            : DeliveryQuote(
+                fee: tariff.fee,
+                price: subtotal + tariff.fee,
+                // No etrap in this mode; sending an invented one would ask
+                // the server to charge for a district it never matched.
+                matched: true,
+              );
+      } else {
+        _tariff = null;
+        result = await _repository.quote(point: point, subtotal: subtotal);
+      }
     } finally {
       _quoting = false;
     }
-    _log(
-      result == null
-          ? 'NO ANSWER (mock mode, network error, or non-2xx) → falling back '
-                'to the ${AppConfig.fallbackDeliveryFee} '
-                '${AppConfig.currency} estimate'
-          : 'answer      fee=${result.fee} matched=${result.matched} '
-                'etrapId=${result.etrapId} etrap=${result.etrapNameRu}',
-    );
+    if (result == null) {
+      _logFailure(
+        'NO ANSWER (mock mode, network error, or non-2xx) → charging the '
+        '${AppConfig.fallbackDeliveryFee} ${AppConfig.currency} estimate',
+      );
+    } else {
+      _log(
+        'answer      fee=${result.fee} matched=${result.matched} '
+        'etrapId=${result.etrapId} etrap=${result.etrapNameRu}',
+      );
+      _logDistance(result, byDistance: byDistance);
+    }
     // No answer at all still produces a number now, so checkout can price the
     // order offline instead of stalling on a row that never fills in. It is an
     // estimate and says so — `isFallback` carries that all the way to the UI,
@@ -124,6 +199,44 @@ class AddressProvider extends ChangeNotifier {
   static void _log(String message) {
     // ANSI: black on bright cyan, then cyan text.
     debugPrint('\x1B[30;106m DELIVERY \x1B[0m \x1B[96m$message\x1B[0m');
+  }
+
+  /// Same badge, red body — for the one line that says the customer is being
+  /// shown a guess. It scrolls past in the same colour as every other
+  /// delivery line otherwise, and that is the line worth catching.
+  static void _logFailure(String message) {
+    debugPrint('\x1B[97;41m DELIVERY \x1B[0m \x1B[1;31m$message\x1B[0m');
+  }
+
+  /// Debug only — the kilometre figure the price was built on, in red so it
+  /// stands out from the cyan trace. Under AREA pricing there is no such
+  /// figure at all: the server charges by the etrap polygon the point falls
+  /// into, and saying so is more useful than printing a distance the price
+  /// never used.
+  void _logDistance(DeliveryQuote result, {required bool byDistance}) {
+    if (!byDistance) {
+      _logFailure(
+        'km          not measured — AREA pricing charges per etrap '
+        '(${result.etrapNameRu ?? "no match"}), never per km',
+      );
+      return;
+    }
+    final meters = _tariff?.distanceMeters;
+    if (meters == null) {
+      _logFailure(
+        'km          server priced by DISTANCE but sent no distanceMeters, '
+        'so the ${result.fee} ${AppConfig.currency} fee has no km behind it '
+        'the app can show',
+      );
+      return;
+    }
+    final rate = _tariff?.tariff;
+    _logFailure(
+      'km          ${(meters / 1000).toStringAsFixed(2)} km '
+      '(${meters.round()} m, straight line to the nearest branch) '
+      '→ ${result.fee} ${AppConfig.currency}'
+      '${rate == null ? '' : ' at rate $rate'}',
+    );
   }
 
   Future<void> load() async {

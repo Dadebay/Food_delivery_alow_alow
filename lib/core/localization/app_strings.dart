@@ -87,6 +87,14 @@ abstract class AppStrings {
   String get placeOrder;
   String get selectAddressFirst;
 
+  /// Title of the once-a-day reminder about a basket left standing.
+  String get cartReminderTitle;
+
+  /// Body of that reminder. [dishes] is a short list of what is waiting —
+  /// naming the food is the whole point; "you have items in your cart" is
+  /// something every app says and nobody reads.
+  String cartReminderBody(String dishes);
+
   /// The point is usable for this order, but it did not reach the customer's
   /// saved list.
   String get addressNotSaved;
@@ -241,6 +249,51 @@ abstract class AppStrings {
   /// Shown when the point came from Wi-Fi/cell rather than satellites, so it
   /// can be a street or two out.
   String get locationApproximate;
+  // ─── Loyalty and gifts ───────────────────────────────────────
+  String get myPoints;
+  String get myPointsSubtitle;
+  String get pointsBalanceLabel;
+  String get giftShop;
+  String get giftShopSubtitle;
+  String get giftShopEmpty;
+  String get giftsInCart;
+  String get addGift;
+  String get giftAdded;
+  String get giftNeedsFood;
+  String get giftLimitReached;
+
+  /// Refusal when the chosen gifts would cost more than the customer has.
+  /// [short] is how many points they are missing, which is more use than
+  /// repeating a balance they can already see in the header.
+  String giftNotEnoughPoints(int short);
+  String get giftSignInNeeded;
+  String get giftOutOfStock;
+  String get removeGift;
+  String get giftUnlimited;
+  String get pointsHistoryEmpty;
+  String get pointsEarnedAfterDelivery;
+  String get pointsSpentOnGifts;
+  String get loyaltyEntryEarn;
+  String get loyaltyEntryRedeem;
+  String get loyaltyEntryRefund;
+  String get loyaltyEntryReverseEarn;
+  String get loyaltyEntryOther;
+
+  /// "+3 балла" on a dish card — per single unit, credited after delivery.
+  String pointsPerUnit(int points);
+  String pointsValue(int points);
+  String giftsLeft(int count);
+
+  // ─── Ordering hours ──────────────────────────────────────────
+  String get orderingClosedTitle;
+  String orderingClosedMessage(String opensAt, String closesAt);
+  String get orderingClosedNow;
+  String get orderingReopenedRetry;
+
+  /// Shown after a 409: something moved between the quote and the order.
+  String get orderStateChanged;
+  String get notEnoughPoints;
+  String get giftNoLongerAvailable;
   String get openSettings;
 }
 
@@ -388,6 +441,10 @@ class StringsRu extends AppStrings {
   String get placeOrder => 'Заказать';
   @override
   String get selectAddressFirst => 'Сначала укажите адрес доставки';
+  @override
+  String get cartReminderTitle => 'Ваш заказ ждёт';
+  @override
+  String cartReminderBody(String dishes) => '$dishes — оформить доставку?';
   @override
   String get addressNotSaved =>
       'Адрес не сохранился в списке, но заказ на него оформить можно';
@@ -661,6 +718,76 @@ class StringsRu extends AppStrings {
   String get locationApproximate =>
       'Местоположение примерное — уточните точку на карте.';
   @override
+  String get myPoints => 'Мои баллы';
+  @override
+  String get myPointsSubtitle => 'Баллы и история операций';
+  @override
+  String get pointsBalanceLabel => 'Баланс баллов';
+  @override
+  String get giftShop => 'Подарки';
+  @override
+  String get giftShopSubtitle => 'Обменяйте баллы на подарки';
+  @override
+  String get giftShopEmpty => 'Пока нет доступных подарков';
+  @override
+  String get giftsInCart => 'Подарки';
+  @override
+  String get addGift => 'Добавить';
+  @override
+  String get giftAdded => 'Подарок добавлен в корзину';
+  @override
+  String get giftNeedsFood => 'Сначала добавьте блюдо в корзину';
+  @override
+  String get giftLimitReached => 'Больше подарков добавить нельзя';
+  @override
+  String giftNotEnoughPoints(int short) => 'Не хватает $short б.';
+  @override
+  String get giftSignInNeeded => 'Войдите, чтобы выбрать подарок';
+  @override
+  String get giftOutOfStock => 'Закончился';
+  @override
+  String get removeGift => 'Убрать подарок';
+  @override
+  String get giftUnlimited => 'Без ограничений';
+  @override
+  String get pointsHistoryEmpty => 'Операций пока нет';
+  @override
+  String get pointsEarnedAfterDelivery => 'Баллы после доставки';
+  @override
+  String get pointsSpentOnGifts => 'Списание за подарки';
+  @override
+  String get loyaltyEntryEarn => 'Начисление';
+  @override
+  String get loyaltyEntryRedeem => 'Списание';
+  @override
+  String get loyaltyEntryRefund => 'Возврат';
+  @override
+  String get loyaltyEntryReverseEarn => 'Отмена начисления';
+  @override
+  String get loyaltyEntryOther => 'Операция';
+  @override
+  String pointsPerUnit(int points) => '+$points б.';
+  @override
+  String pointsValue(int points) => '$points б.';
+  @override
+  String giftsLeft(int count) => 'Осталось $count';
+  @override
+  String get orderingClosedTitle => 'Приём заказов закрыт';
+  @override
+  String orderingClosedMessage(String opensAt, String closesAt) =>
+      'Мы принимаем заказы с $opensAt до $closesAt. Корзина сохранится.';
+  @override
+  String get orderingClosedNow => 'Сейчас заказы не принимаются';
+  @override
+  String get orderingReopenedRetry => 'Попробуйте оформить заказ позже';
+  @override
+  String get orderStateChanged =>
+      'Цены или наличие изменились. Проверьте заказ и подтвердите снова.';
+  @override
+  String get notEnoughPoints => 'Недостаточно баллов';
+  @override
+  String get giftNoLongerAvailable => 'Подарок больше недоступен';
+  @override
   String get openSettings => 'Настройки';
 
   /// Russian needs three plural forms.
@@ -819,6 +946,10 @@ class StringsTm extends AppStrings {
   @override
   String get selectAddressFirst => 'Ilki gowşuryş salgysyny saýlaň';
   @override
+  String get cartReminderTitle => 'Sargydyňyz garaşýar';
+  @override
+  String cartReminderBody(String dishes) => '$dishes — eltip bereliňmi?';
+  @override
   String get addressNotSaved =>
       'Salgy sanawa ýazylmady, ýöne şu sargyt üçin ulanyp bilersiňiz';
   @override
@@ -973,11 +1104,11 @@ class StringsTm extends AppStrings {
   @override
   String get signIn => 'Gir';
   @override
-  String get signInPromptOrders => 'Sargytlaryňyzy görmek üçin giriň';
+  String get signInPromptOrders => 'Sargytlaryňyzy görmek üçin ulgama giriň';
   @override
-  String get signInPromptProfile => 'Profili açmak üçin giriň';
+  String get signInPromptProfile => 'Profili açmak üçin ulgama giriň';
   @override
-  String get signInPromptCheckout => 'Sargyt bermek üçin giriň';
+  String get signInPromptCheckout => 'Sargyt bermek üçin ulgama giriň';
   @override
   String get nameLabel => 'Adyňyz';
   @override
@@ -1088,6 +1219,76 @@ class StringsTm extends AppStrings {
   @override
   String get locationApproximate =>
       'Ýerleşýän ýer takmynan — nokady kartada takyklaň.';
+  @override
+  String get myPoints => 'Ballarym';
+  @override
+  String get myPointsSubtitle => 'Ballar we amallaryň taryhy';
+  @override
+  String get pointsBalanceLabel => 'Ballar balansy';
+  @override
+  String get giftShop => 'Sowgatlar';
+  @override
+  String get giftShopSubtitle => 'Ballary sowgada çalşyň';
+  @override
+  String get giftShopEmpty => 'Häzirlikçe elýeterli sowgat ýok';
+  @override
+  String get giftsInCart => 'Sowgatlar';
+  @override
+  String get addGift => 'Goşmak';
+  @override
+  String get giftAdded => 'Sowgat sebede goşuldy';
+  @override
+  String get giftNeedsFood => 'Ilki sebede nahar goşuň';
+  @override
+  String get giftLimitReached => 'Mundan artyk sowgat goşup bolmaýar';
+  @override
+  String giftNotEnoughPoints(int short) => '$short bal ýetmeýär';
+  @override
+  String get giftSignInNeeded => 'Sowgat saýlamak üçin ulgama giriň';
+  @override
+  String get giftOutOfStock => 'Gutardy';
+  @override
+  String get removeGift => 'Sowgady aýyr';
+  @override
+  String get giftUnlimited => 'Çäklendirmesiz';
+  @override
+  String get pointsHistoryEmpty => 'Häzirlikçe amal ýok';
+  @override
+  String get pointsEarnedAfterDelivery => 'Eltip berlenden soň ballar';
+  @override
+  String get pointsSpentOnGifts => 'Sowgatlar üçin çykdajy';
+  @override
+  String get loyaltyEntryEarn => 'Goşuldy';
+  @override
+  String get loyaltyEntryRedeem => 'Çykaryldy';
+  @override
+  String get loyaltyEntryRefund => 'Yzyna gaýtaryldy';
+  @override
+  String get loyaltyEntryReverseEarn => 'Goşulan ballar yzyna alyndy';
+  @override
+  String get loyaltyEntryOther => 'Amal';
+  @override
+  String pointsPerUnit(int points) => '+$points bal';
+  @override
+  String pointsValue(int points) => '$points bal';
+  @override
+  String giftsLeft(int count) => '$count sany galdy';
+  @override
+  String get orderingClosedTitle => 'Sargyt kabul edilenok';
+  @override
+  String orderingClosedMessage(String opensAt, String closesAt) =>
+      'Sargytlary $opensAt – $closesAt aralygynda kabul edýäris. Sebediňiz saklanar.';
+  @override
+  String get orderingClosedNow => 'Häzir sargyt kabul edilenok';
+  @override
+  String get orderingReopenedRetry => 'Sargydy soňrak synanyşyň';
+  @override
+  String get orderStateChanged =>
+      'Bahalar ýa-da elýeterlilik üýtgedi. Sargydy barlaň we täzeden tassyklaň.';
+  @override
+  String get notEnoughPoints => 'Ballar ýeterlik däl';
+  @override
+  String get giftNoLongerAvailable => 'Sowgat indi elýeterli däl';
   @override
   String get openSettings => 'Sazlamalar';
 }

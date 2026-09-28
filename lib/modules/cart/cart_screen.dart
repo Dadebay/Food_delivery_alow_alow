@@ -12,6 +12,7 @@ import '../auth/login_screen.dart';
 import '../checkout/address_provider.dart';
 import '../checkout/checkout_screen.dart';
 import 'cart_provider.dart';
+import 'widgets/cart_gift_line.dart';
 import 'widgets/cart_line.dart';
 
 /// The cart tab — matches `cust_cart.png`'s order-line list, feeding straight
@@ -63,6 +64,27 @@ class _CartScreenState extends State<CartScreen> {
     final deliveryFee = addresses.deliveryFee;
     final columns = Responsive.isCompact(context) ? 1 : 2;
 
+    // Food first, then the gifts it earned. One list so both kinds flow
+    // through the same pairing, and a gift never ends up alone on a row while
+    // a dish waits below it.
+    final lines = <Widget>[
+      for (final item in cart.items)
+        CartLine(
+          item: item,
+          onIncrement: () => cart.setQuantity(item.dish, item.quantity + 1, variant: item.variant),
+          onDecrement: () => cart.setQuantity(item.dish, item.quantity - 1, variant: item.variant),
+          onRemove: () => cart.remove(item.dish, variant: item.variant),
+        ),
+      for (final line in cart.gifts)
+        CartGiftLine(
+          line: line,
+          strings: s,
+          onIncrement: () => cart.setGiftQuantity(line.gift.id, line.quantity + 1),
+          onDecrement: () => cart.setGiftQuantity(line.gift.id, line.quantity - 1),
+          onRemove: () => cart.removeGift(line.gift.id),
+        ),
+    ];
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(title: Text(s.cartTitle)),
@@ -77,26 +99,18 @@ class _CartScreenState extends State<CartScreen> {
           // most of the screen empty, so they pair up.
           : ListView.separated(
               padding: Responsive.pageInsets(context, const EdgeInsets.fromLTRB(14, 12, 14, 12), maxContentWidth: 1100),
-              itemCount: (cart.items.length + columns - 1) ~/ columns,
+              itemCount: (lines.length + columns - 1) ~/ columns,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, row) {
                 final cells = <Widget>[];
                 for (var column = 0; column < columns; column++) {
                   if (column > 0) cells.add(const SizedBox(width: 10));
                   final index = row * columns + column;
-                  if (index >= cart.items.length) {
-                    cells.add(const Expanded(child: SizedBox.shrink()));
-                    continue;
-                  }
-                  final item = cart.items[index];
                   cells.add(
                     Expanded(
-                      child: CartLine(
-                        item: item,
-                        onIncrement: () => cart.setQuantity(item.dish, item.quantity + 1, variant: item.variant),
-                        onDecrement: () => cart.setQuantity(item.dish, item.quantity - 1, variant: item.variant),
-                        onRemove: () => cart.remove(item.dish, variant: item.variant),
-                      ),
+                      child: index < lines.length
+                          ? lines[index]
+                          : const SizedBox.shrink(),
                     ),
                   );
                 }
@@ -114,6 +128,9 @@ class _CartScreenState extends State<CartScreen> {
                   children: [
                     _SummaryRow(label: s.dishesTotal, value: Fmt.money(cart.subtotal)),
                     if (cart.discount > 0) ...[const SizedBox(height: 6), _SummaryRow(label: s.discountLabel, value: '-${Fmt.money(cart.discount)}', valueColor: AppColors.orange)],
+                    // Points, not manat, and on its own row — a gift must
+                    // never look like it is adding to the money total.
+                    if (cart.hasGifts) ...[const SizedBox(height: 6), _SummaryRow(label: s.pointsSpentOnGifts, value: s.pointsValue(cart.giftPoints), valueColor: AppColors.gold)],
                     // Only shown once the backend has priced delivery for
                     // this address — no client-side guess in the meantime.
                     if (deliveryFee != null) ...[const SizedBox(height: 6), _SummaryRow(label: addresses.quoteIsEstimate ? s.deliveryFeeEstimated : s.deliveryFeeLabel, value: Fmt.money(deliveryFee))],

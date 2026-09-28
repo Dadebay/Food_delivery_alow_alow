@@ -376,6 +376,26 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   padding: EdgeInsets.symmetric(vertical: 4),
                   child: Divider(),
                 ),
+                // The gifts as they were bought, from the order's own
+                // snapshot — not looked up in today's catalogue, so one
+                // that has since been hidden or repriced still reads the
+                // way the customer ordered it.
+                if (order.gifts.isNotEmpty) ...[
+                  Text(s.giftsInCart, style: AppText.h2.copyWith(fontSize: 14)),
+                  const SizedBox(height: 6),
+                  for (final gift in order.gifts) ...[
+                    _TotalsRow(
+                      label: '${gift.name} ×${gift.quantity}',
+                      value: s.pointsValue(gift.totalPoints),
+                      valueColor: AppColors.goldInk,
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: Divider(),
+                  ),
+                ],
                 _TotalsRow(
                   label: s.dishesTotal,
                   value: Fmt.money(order.subtotal),
@@ -402,6 +422,26 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   value: Fmt.money(order.total),
                   bold: true,
                 ),
+                // Points are not money and sit below the total on purpose,
+                // so they can never read as part of what was paid.
+                if (order.loyaltyPointsSpent != null &&
+                    order.loyaltyPointsSpent! > 0) ...[
+                  const SizedBox(height: 10),
+                  _TotalsRow(
+                    label: s.pointsSpentOnGifts,
+                    value: '-${s.pointsValue(order.loyaltyPointsSpent!)}',
+                    valueColor: AppColors.orange,
+                  ),
+                ],
+                if (order.loyaltyPointsEarned != null &&
+                    order.loyaltyPointsEarned! > 0) ...[
+                  const SizedBox(height: 8),
+                  _TotalsRow(
+                    label: s.pointsEarnedAfterDelivery,
+                    value: '+${s.pointsValue(order.loyaltyPointsEarned!)}',
+                    valueColor: AppColors.success,
+                  ),
+                ],
               ],
             ),
           ),

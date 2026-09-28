@@ -80,6 +80,22 @@ class DishCard extends StatelessWidget {
                           child: _Badge(text: '-${dish.discountPercent}%'),
                         ),
                       ),
+                    // Points for one unit, credited after the order is
+                    // delivered. Only drawn when the dish actually earns
+                    // some: null means no value set or a server without
+                    // loyalty, and "+0 points" would be a worse answer to
+                    // both. It sits on the photo rather than under the
+                    // price — the white strip has room for two lines only.
+                    if (dish.loyaltyPoints != null && dish.loyaltyPoints! > 0)
+                      Positioned(
+                        left: 8,
+                        bottom: 8,
+                        child: IgnorePointer(
+                          child: _PointsPill(
+                            text: context.s.pointsPerUnit(dish.loyaltyPoints!),
+                          ),
+                        ),
+                      ),
                     Positioned(
                       top: 6,
                       right: 6,
@@ -320,7 +336,20 @@ class _Stepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    // The pill animates from 38 to 86 points wide as the dish enters the
+    // cart, and this row's two tap targets alone are 52 — so for a few frames
+    // in the middle the row is handed less width than its own buttons need
+    // and reports an overflow. Laying it out at the final width and clipping
+    // is also what the animation is trying to look like: a pill widening to
+    // reveal a stepper that is already the right size, rather than a stepper
+    // being squashed and stretched.
+    return ClipRect(
+      child: OverflowBox(
+        minWidth: _QuickAdd._stepperWidth,
+        maxWidth: _QuickAdd._stepperWidth,
+        // The "+" keeps its place while the pill grows leftwards.
+        alignment: Alignment.centerRight,
+        child: SizedBox(
       height: _QuickAdd._height,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -353,6 +382,8 @@ class _Stepper extends StatelessWidget {
           _StepTap(icon: AppIcons.plus, onTap: onIncrease),
         ],
       ),
+        ),
+      ),
     );
   }
 }
@@ -373,6 +404,27 @@ class _StepTap extends StatelessWidget {
         child: Center(
           child: HugeIcon(icon: icon, color: AppColors.onBrand, size: 16),
         ),
+      ),
+    );
+  }
+}
+
+class _PointsPill extends StatelessWidget {
+  const _PointsPill({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.goldSoft,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: AppText.label.copyWith(fontSize: 10, color: AppColors.goldInk),
       ),
     );
   }

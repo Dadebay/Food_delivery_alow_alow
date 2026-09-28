@@ -139,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           Navigator.of(context).maybePop(false),
                                 child: const HugeIcon(
                                   icon: AppIcons.back,
-                                  color: AppColors.onBrand,
+                                  color: AppColors.white,
                                   size: 22,
                                 ),
                               ),
@@ -555,7 +555,9 @@ class _GlassButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: const Color(0x33000000),
-      shape: const CircleBorder(),
+      shape: const CircleBorder(
+        side: BorderSide(color: Color(0x8CFFFFFF), width: 1.2),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,

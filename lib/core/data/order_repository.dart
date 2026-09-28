@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../constants/app_config.dart';
+import '../models/cart_gift.dart';
 import '../models/cart_item.dart';
 import '../models/delivery_address.dart';
 import '../models/dish.dart';
@@ -10,6 +11,7 @@ import '../models/order.dart';
 import '../models/order_quote.dart';
 import '../models/order_status.dart';
 import '../network/api_client.dart';
+import 'loyalty_repository.dart';
 import 'mock/mock_data.dart';
 
 /// Thrown when the backend rejects an order — carries the server's own
@@ -63,6 +65,14 @@ class OrderRepository {
     /// Combined with the address's own intercom/delivery note below, since
     /// the server only has one comment slot per order.
     String? orderComment,
+    List<CartGift> gifts = const [],
+
+    /// A UUID identifying this *attempt*, so a retry after a timeout lands
+    /// on the order that may already exist instead of creating a second
+    /// one. Generated once per basket by the caller and reused verbatim on
+    /// every retry of the same basket — never regenerated while the outcome
+    /// of a previous send is unknown.
+    String? idempotencyKey,
   }) async {
     // The server's own `@ArrayMinSize(1)` rejects this with a 400 anyway,
     // but catching it here avoids a wasted round-trip for what's always a
@@ -89,6 +99,19 @@ class OrderRepository {
         placedAt: DateTime.now(),
         branchPoint: MockData.branchPoint,
         branchName: MockData.branchName,
+        gifts: gifts
+            .map(
+              (g) => QuotedGift(
+                giftId: g.gift.id,
+                name: g.gift.name,
+                quantity: g.quantity,
+                pointsCost: g.gift.pointsCost,
+                totalPoints: g.totalPoints,
+                imageUrl: g.gift.imageUrl,
+              ),
+            )
+            .toList(),
+        loyaltyPointsSpent: gifts.fold<int>(0, (sum, g) => sum + g.totalPoints),
       );
     }
 
@@ -117,6 +140,8 @@ class OrderRepository {
       'customerNote': _combinedCustomerNote(orderComment, address.note),
       'promoCode': ?promoCode,
       'deliveryEtrapId': ?deliveryEtrapId,
+      'idempotencyKey': ?idempotencyKey,
+      if (gifts.isNotEmpty) 'gifts': giftsPayload(gifts),
     };
     if (kDebugMode) {
       debugPrint('[CreateOrder ${_ts()}] POST ${ApiPaths.placeOrder}');
@@ -320,6 +345,23 @@ class OrderRepository {
     }
     if (joined.contains('promo')) {
       return 'promo code problem only — the cart itself priced fine';
+    }
+    if (joined.contains('point') || joined.contains('balance')) {
+      return 'not enough points for the chosen gifts — re-read /loyalty/me, '
+          'the balance moved since the quote';
+    }
+    if (joined.contains('gift') || joined.contains('stock')) {
+      return 'a gift went out of stock or was hidden between the quote and '
+          'this request — reload /loyalty/gifts and re-quote';
+    }
+    if (joined.contains('closed') || joined.contains('hours')) {
+      return 'ordering hours closed between the quote and this request — '
+          're-read /ordering-hours and keep the cart';
+    }
+    if (code == 409) {
+      return 'something moved between the quote and this request — refresh '
+          'balance, gifts, hours and the quote, then let the customer '
+          'confirm the new state';
     }
     if (joined.contains('productid') || joined.contains('variantid')) {
       return 'a cart line points at a product/variant the server does not '
@@ -566,6 +608,15 @@ class OrderRepository {
     courierName: _fullName(json['courier']),
     courierPhone: (json['courier'] as Map?)?['phone'] as String?,
     rating: (json['rating'] as Map?)?['score'] as int?,
+    // The order's own copy of what was bought, not a lookup into today's
+    // gift catalogue — a gift hidden or repriced since must still show the
+    // way the customer bought it.
+    gifts: (json['gifts'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map((e) => QuotedGift.fromJson(e, resolveImage: _absoluteImageUrl))
+        .toList(),
+    loyaltyPointsEarned: (json['loyaltyPointsEarned'] as num?)?.toInt(),
+    loyaltyPointsSpent: (json['loyaltyPointsSpent'] as num?)?.toInt(),
   );
 
   List<CartItem> _itemsFromJson(Object? source, List<CartItem> fallback) {
@@ -609,6 +660,8 @@ class OrderRepository {
     required double subtotal,
     int? deliveryEtrapId,
     String? promoCode,
+    List<CartGift> gifts = const [],
+    LatLng? point,
   }) async {
     // An empty cart has nothing to price, and the server rejects it outright
     // ("items must contain at least 1 elements"). Checkout re-quotes whenever
@@ -663,6 +716,15 @@ class OrderRepository {
           .toList(),
       'deliveryEtrapId': ?deliveryEtrapId,
       'promoCode': ?promoCode,
+      // Omitted entirely when empty rather than sent as `[]`: a server that
+      // predates gifts has no such field, and an unexpected key is the kind
+      // of thing a strict DTO rejects outright.
+      if (gifts.isNotEmpty) 'gifts': giftsPayload(gifts),
+      // Distance pricing needs the point to price against; district pricing
+      // ignores it. Sent as a pair or not at all — the API rejects one
+      // coordinate without the other.
+      if (point != null) 'latitude': point.latitude,
+      if (point != null) 'longitude': point.longitude,
     };
     if (kDebugMode) {
       debugPrint('[OrderQuote ${_ts()}] POST ${ApiPaths.orderQuote}');
@@ -687,7 +749,10 @@ class OrderRepository {
       if (kDebugMode) _printOrderConflict(response, what: 'QUOTE');
       throw OrderPlacementException(code, _extractServerMessage(response.data));
     }
-    return OrderQuote.fromJson(response.data as Map<String, dynamic>);
+    return OrderQuote.fromJson(
+      response.data as Map<String, dynamic>,
+      resolveImage: _absoluteImageUrl,
+    );
   }
 
   String? _absoluteImageUrl(Object? rawUrl) {

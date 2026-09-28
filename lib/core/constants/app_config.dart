@@ -48,6 +48,15 @@ class AppConfig {
   /// experience can be shown and tested before the backend exists.
   static const bool useMockData = bool.fromEnvironment('USE_MOCK_DATA');
 
+  /// Promokod alanini odeme ekraninda gosterir.
+  ///
+  /// Kapali: alan acikken girilen her kod sunucuya gidiyor ve promokod akisi
+  /// bu kurulumda hazir degil — calismayan bir alani gostermek, olmayan bir
+  /// indirimi denettirip musteriyi bos yere ugrastiriyor. Kod yerinde
+  /// duruyor; hazir oldugunda burayi `true` yapmak yetiyor.
+  /// `--dart-define=SHOW_PROMO_CODE=true` ile de acilabilir.
+  static const bool showPromoCode = bool.fromEnvironment('SHOW_PROMO_CODE');
+
   // ─── Map ─────────────────────────────────────────────────────
   /// Same tile server as the courier app.
   static const String mapTileUrl = 'https://a7-tagam.com.tm/tile/{z}/{x}/{y}.png';

@@ -16,7 +16,13 @@ import 'order_status_badge.dart';
 /// One past or in-progress order — number, date, item summary, status, total
 /// and a one-tap "Повторить" that puts everything back in the cart.
 class OrderHistoryCard extends StatelessWidget {
-  const OrderHistoryCard({super.key, required this.order, required this.strings, required this.onTap, required this.onReorder});
+  const OrderHistoryCard({
+    super.key,
+    required this.order,
+    required this.strings,
+    required this.onTap,
+    required this.onReorder,
+  });
 
   final CustomerOrder order;
   final AppStrings strings;
@@ -35,7 +41,13 @@ class OrderHistoryCard extends StatelessWidget {
         // without a shadow the card has no visible edge at all — this is
         // what makes it read as a raised card instead of disappearing into
         // the background.
-        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 18, offset: const Offset(0, 6))],
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -57,14 +69,22 @@ class OrderHistoryCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(strings.orderNumber(order.number), style: AppText.h2.copyWith(fontSize: 16)),
+                          Text(
+                            strings.orderNumber(order.number),
+                            style: AppText.h2.copyWith(fontSize: 16),
+                          ),
                           const SizedBox(height: 2),
-                          Text(Fmt.date(order.placedAt), style: AppText.bodyMuted.copyWith(fontSize: 12)),
+                          Text(
+                            Fmt.date(order.placedAt),
+                            style: AppText.bodyMuted.copyWith(fontSize: 12),
+                          ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
-                    OrderStatusChip(status: status, strings: strings),
+                    Flexible(
+                      child: OrderStatusChip(status: status, strings: strings),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -73,17 +93,40 @@ class OrderHistoryCard extends StatelessWidget {
                 Row(
                   children: [
                     _ItemThumbnails(items: order.items),
-                    const Spacer(),
-                    if (!status.isOpen)
-                      _ReorderButton(label: strings.reorder, onTap: onReorder)
-                    else if (status == OrderStatus.onTheWay && order.etaMinutesLow != null && order.etaMinutesHigh != null)
-                      _EtaHint(text: strings.etaRange(order.etaMinutesLow!, order.etaMinutesHigh!))
-                    else
-                      // The same status glyph as the badge up top — a clock
-                      // for a fresh order, a courier once it's on the way,
-                      // a double-check once delivered — instead of a plain
-                      // chevron that says nothing about where it stands.
-                      HugeIcon(icon: status.icon, color: status.color, size: 18),
+                    const SizedBox(width: 10),
+                    // Esnek bosluk yerine esnek icerik: `Spacer` sifirin
+                    // altina inemedigi icin uzun bir ceviri ya da genis bir
+                    // fiyat rozeti satiri tasiriyordu. Ortadaki oge artik
+                    // yer daralinca kuculuyor.
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: !status.isOpen
+                            ? _ReorderButton(
+                                label: strings.reorder,
+                                onTap: onReorder,
+                              )
+                            : (status == OrderStatus.onTheWay &&
+                                  order.etaMinutesLow != null &&
+                                  order.etaMinutesHigh != null)
+                            ? _EtaHint(
+                                text: strings.etaRange(
+                                  order.etaMinutesLow!,
+                                  order.etaMinutesHigh!,
+                                ),
+                              )
+                            // The same status glyph as the badge up top — a
+                            // clock for a fresh order, a courier once it's on
+                            // the way, a double-check once delivered —
+                            // instead of a plain chevron that says nothing
+                            // about where it stands.
+                            : HugeIcon(
+                                icon: status.icon,
+                                color: status.color,
+                                size: 18,
+                              ),
+                      ),
+                    ),
                     const SizedBox(width: 10),
                     _PriceBadge(text: Fmt.money(order.total)),
                   ],
@@ -108,7 +151,10 @@ class _PriceBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(color: AppColors.brand.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(
+        color: AppColors.brand.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Text(text, style: AppText.figure.copyWith(fontSize: 15)),
     );
   }
@@ -124,11 +170,18 @@ class _ItemThumbnails extends StatelessWidget {
 
   static const double _size = 48;
   static const double _overlap = 16;
-  static const int _maxShown = 4;
+  /// Cizilecek *daire* sayisinin ust siniri — gosterilecek urun sayisinin
+  /// degil. Onceden sinir urunlere konuluyordu, ama "+N" dairesi onun
+  /// disindaydi: dort urunde yine dort daire cikiyor ve 144 piksel tutuyordu.
+  /// Dar ekranda satirin tasan kismi hep burasiydi. Ucu 112 piksel.
+  static const int _maxCircles = 3;
 
   @override
   Widget build(BuildContext context) {
-    final shown = items.take(_maxShown).toList();
+    // Hepsi sigiyorsa hepsi cizilir; sigmiyorsa son daire "+N" olur, yani
+    // gosterilen urun sayisi bir eksilir.
+    final fitsAll = items.length <= _maxCircles;
+    final shown = items.take(fitsAll ? _maxCircles : _maxCircles - 1).toList();
     final extra = items.length - shown.length;
     final circleCount = shown.length + (extra > 0 ? 1 : 0);
     if (circleCount == 0) return const SizedBox.shrink();
@@ -143,7 +196,10 @@ class _ItemThumbnails extends StatelessWidget {
             Positioned(
               left: i * (_size - _overlap),
               child: _ThumbnailCircle(
-                child: DishThumbnail(dish: shown[i].dish, borderRadius: BorderRadius.circular(_size)),
+                child: DishThumbnail(
+                  dish: shown[i].dish,
+                  borderRadius: BorderRadius.circular(_size),
+                ),
               ),
             ),
           if (extra > 0)
@@ -155,7 +211,11 @@ class _ItemThumbnails extends StatelessWidget {
                   child: Center(
                     child: Text(
                       '+$extra',
-                      style: AppText.chip.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+                      style: AppText.chip.copyWith(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 ),
@@ -181,7 +241,13 @@ class _ThumbnailCircle extends StatelessWidget {
         shape: BoxShape.circle,
         color: AppColors.white,
         border: Border.all(color: AppColors.white, width: 2),
-        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: ClipOval(child: child),
     );
@@ -198,9 +264,20 @@ class _EtaHint extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const HugeIcon(icon: AppIcons.courier, color: AppColors.orange, size: 16),
+        const HugeIcon(
+          icon: AppIcons.courier,
+          color: AppColors.orange,
+          size: 16,
+        ),
         const SizedBox(width: 6),
-        Text(text, style: AppText.chip.copyWith(color: AppColors.orange, fontSize: 13)),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.chip.copyWith(color: AppColors.orange, fontSize: 13),
+          ),
+        ),
       ],
     );
   }
@@ -225,9 +302,20 @@ class _ReorderButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const HugeIcon(icon: AppIcons.cart, color: AppColors.onBrand, size: 15),
+              const HugeIcon(
+                icon: AppIcons.cart,
+                color: AppColors.onBrand,
+                size: 15,
+              ),
               const SizedBox(width: 6),
-              Text(label, style: AppText.chip.copyWith(color: AppColors.onBrand)),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.chip.copyWith(color: AppColors.onBrand),
+                ),
+              ),
             ],
           ),
         ),

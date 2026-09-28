@@ -506,6 +506,16 @@ class ApiPaths {
   static const String placeOrder = 'orders';
   static const String orderQuote = 'orders/quote';
   static const String deliveryQuote = 'delivery/quote';
+
+  // ─── Loyalty, tariff and ordering hours ──────────────────────
+  // Added for MOBILE_LOYALTY_DELIVERY_HANDOFF.md. The API carrying these is
+  // not deployed yet, so every caller has to treat a 404 here as "this
+  // server does not have the feature" rather than as a failure.
+  static const String loyaltyGifts = 'loyalty/gifts';
+  static const String loyaltyMe = 'loyalty/me';
+  static const String orderingHours = 'ordering-hours';
+  static const String deliveryConfig = 'delivery/config';
+  static const String deliveryTariffQuote = 'delivery/tariff-quote';
   static const String geocodingReverse = 'geocoding/reverse';
   static const String geocodingSearch = 'geocoding/search';
 
