@@ -66,6 +66,10 @@ class AppIcons {
   static const HugeIconData email = HugeIcons.strokeRoundedMail01;
   static const HugeIconData listView = HugeIcons.strokeRoundedListView;
 
+  /// Re-ask the server for something that failed to load — used where a
+  /// missing value is worth retrying in place rather than reopening a screen.
+  static const HugeIconData refresh = HugeIcons.strokeRoundedRefresh;
+
   /// Background watermark for a category card that has no dish photo yet —
   /// keeps the parallax drift visible even on a flat tint.
   static const HugeIconData foodWatermark = HugeIcons.strokeRoundedServingFood;

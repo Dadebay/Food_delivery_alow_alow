@@ -222,6 +222,38 @@ class CartProvider extends ChangeNotifier {
   static const int maxDistinctGifts = 10;
   static const int maxGiftQuantity = 10;
 
+  /// Why one more of [gift] cannot go into this cart, given the customer's
+  /// point [balance].
+  ///
+  /// The whole rule lives here rather than in the gift shop's widget tree so
+  /// that the shop, the cart and any later caller refuse the same things for
+  /// the same reasons — and so it can be tested without a screen.
+  ///
+  /// [balance] is nullable on purpose: `null` means "not loaded yet", which
+  /// is not the same as zero. Blocking on it would refuse a customer who can
+  /// in fact afford the gift, so an unknown balance lets the attempt through
+  /// and the server — which prices the order for real — has the final say.
+  GiftBlock giftBlock(LoyaltyGift gift, {int? balance}) {
+    if (_items.isEmpty) return const GiftBlock.noFood();
+
+    final inCart = giftQuantityOf(gift.id);
+    if (inCart >= maxGiftQuantity) return const GiftBlock.limitReached();
+    if (inCart == 0 && _gifts.length >= maxDistinctGifts) {
+      return const GiftBlock.limitReached();
+    }
+
+    if (balance == null) return const GiftBlock.none();
+    // Counted against everything already chosen, not this gift alone: three
+    // individually affordable gifts can still come to more than the balance.
+    // A customer with no points fails this on the very first one.
+    final afterThis = giftPoints + gift.pointsCost;
+    if (afterThis > balance) {
+      return GiftBlock.notEnoughPoints(afterThis - balance);
+    }
+
+    return const GiftBlock.none();
+  }
+
   /// A gift rides along with food; it is never an order of its own. This is
   /// the rule behind the disabled state on the gift shop's add button.
   bool get canAddGifts => _items.isNotEmpty;
@@ -238,8 +270,12 @@ class CartProvider extends ChangeNotifier {
   /// Adds one of [gift], or bumps an existing line. Returns false when the
   /// cart has no food yet, when a tenth distinct gift would be added, or
   /// when the line is already at ten — the caller shows why.
-  bool addGift(LoyaltyGift gift, {int quantity = 1}) {
+  bool addGift(LoyaltyGift gift, {int quantity = 1, int? balance}) {
     if (!canAddGifts) return false;
+    // The same gate the button uses, applied again at the point of change:
+    // the balance can move between the frame that drew the button and the
+    // tap that reaches here.
+    if (!giftBlock(gift, balance: balance).allowed) return false;
     if (quantity < 1) return false;
     final existing = _giftLineFor(gift.id);
     if (existing == null) {
@@ -280,3 +316,33 @@ class CartProvider extends ChangeNotifier {
     _changed();
   }
 }
+
+
+/// Why a gift cannot be added, or that it can.
+///
+/// A reason rather than a bool, so the gift shop can say *why* next to a
+/// disabled button — a greyed-out control with no explanation leaves the
+/// customer tapping it to find out.
+class GiftBlock {
+  const GiftBlock.none()
+      : reason = GiftBlockReason.none,
+        shortfall = 0;
+  const GiftBlock.noFood()
+      : reason = GiftBlockReason.noFood,
+        shortfall = 0;
+  const GiftBlock.limitReached()
+      : reason = GiftBlockReason.limitReached,
+        shortfall = 0;
+  const GiftBlock.notEnoughPoints(this.shortfall)
+      : reason = GiftBlockReason.notEnoughPoints;
+
+  final GiftBlockReason reason;
+
+  /// How many points short the cart would be. Only meaningful for
+  /// [GiftBlockReason.notEnoughPoints].
+  final int shortfall;
+
+  bool get allowed => reason == GiftBlockReason.none;
+}
+
+enum GiftBlockReason { none, noFood, limitReached, notEnoughPoints }

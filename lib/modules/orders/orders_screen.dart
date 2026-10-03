@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/localization/locale_provider.dart';
@@ -55,7 +54,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         // read as raised cards instead of blending into an identical
         // background.
         backgroundColor: Colors.transparent,
-        appBar: AppBar(title: Text(s.ordersTitle), centerTitle: true, automaticallyImplyLeading: false),
+        appBar: AppBar(title: Text(s.ordersTitle), centerTitle: false, automaticallyImplyLeading: false),
         body: _SignInPrompt(title: s.ordersEmpty, hint: s.signInPromptOrders, label: s.signIn),
       );
     }
@@ -67,7 +66,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: Text(s.ordersTitle), centerTitle: true, automaticallyImplyLeading: false),
+      appBar: AppBar(title: Text(s.ordersTitle), centerTitle: false, automaticallyImplyLeading: false),
       body: orders.loading
           ? Center(child: DeliveryLoader(size: 200, message: s.loadingHint))
           : orders.orders.isEmpty

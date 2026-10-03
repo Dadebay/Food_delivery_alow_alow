@@ -57,10 +57,12 @@ class LoyaltyProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _gifts = await _repository.gifts();
+      _log('gifts = ${_gifts.length}');
     } on FeatureUnavailableException {
       _markUnavailable();
     } catch (error) {
       _giftsError = error;
+      _log('gifts FAILED — $error', bad: true);
     } finally {
       _loadingGifts = false;
       notifyListeners();
@@ -77,10 +79,17 @@ class LoyaltyProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _account = await _repository.me();
+      _log('balance = ${_account?.pointsBalance} '
+          '(${_account?.entries.length ?? 0} entries)');
     } on FeatureUnavailableException {
       _markUnavailable();
     } catch (error) {
+      // Swallowed into state, but never silently: a balance that fails to
+      // load leaves the gift shop unable to tell "no points" from "we do not
+      // know yet", and that difference has to be visible in the console
+      // rather than only as a missing number on screen.
       _accountError = error;
+      _log('balance FAILED — $error', bad: true);
     } finally {
       _loadingAccount = false;
       notifyListeners();
@@ -105,14 +114,18 @@ class LoyaltyProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Debug only. Same badge language as the other services in the app.
+  static void _log(String message, {bool bad = false}) {
+    if (!kDebugMode) return;
+    const badge = '\x1B[30;106m LOYALTY \x1B[0m';
+    final colour = bad ? '\x1B[91m' : '\x1B[96m';
+    debugPrint('$badge $colour$message\x1B[0m');
+  }
+
   void _markUnavailable() {
     _unavailable = true;
     _gifts = const [];
     _account = null;
-    if (kDebugMode) {
-      debugPrint(
-        '[Loyalty] this server has no loyalty endpoints — hiding the feature',
-      );
-    }
+    _log('this server has no loyalty endpoints — hiding the feature', bad: true);
   }
 }

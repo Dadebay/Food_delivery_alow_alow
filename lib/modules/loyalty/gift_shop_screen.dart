@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
@@ -34,45 +35,131 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<LoyaltyProvider>().loadGifts();
+      if (!mounted) return;
+      final loyalty = context.read<LoyaltyProvider>();
+      loyalty.loadGifts();
+      // The balance is what decides whether a gift can be afforded at all,
+      // so this screen asks for it rather than relying on whatever the
+      // startup refresh happened to leave behind. The provider ignores a
+      // second call while one is already in flight.
+      if (context.read<AuthProvider>().isSignedIn) loyalty.loadAccount();
     });
   }
 
   void _add(LoyaltyGift gift) {
     final s = context.sr;
     final cart = context.read<CartProvider>();
+    final loyalty = context.read<LoyaltyProvider>();
+    final balance = loyalty.balance;
+    final signedIn = context.read<AuthProvider>().isSignedIn;
 
     // Three refusals, three different reasons — a single "cannot add" would
     // leave the customer guessing which one they hit.
-    if (!context.read<AuthProvider>().isSignedIn) {
+    if (!signedIn) {
+      _logGiftAttempt(gift, cart, loyalty, verdict: 'REFUSED — not signed in');
       AppSnackBar.show(context, message: s.giftSignInNeeded);
       return;
     }
-    if (!cart.canAddGifts) {
-      AppSnackBar.show(context, message: s.giftNeedsFood);
+    final block = cart.giftBlock(gift, balance: balance);
+    if (!block.allowed) {
+      _logGiftAttempt(gift, cart, loyalty, block: block, verdict: 'REFUSED');
+      AppSnackBar.show(context, message: _GiftCard.reasonText(block, s) ?? s.giftLimitReached);
       return;
     }
-    // Counted against everything already chosen, not this gift alone: three
-    // affordable gifts can still add up to more than the balance.
-    //
-    // A null balance means "not loaded", never "nothing" — blocking on it
-    // would refuse a customer who can in fact afford the gift. The server
-    // does the spending and rejects it properly if this turns out wrong.
-    final balance = context.read<LoyaltyProvider>().balance;
-    if (balance != null && cart.giftPoints + gift.pointsCost > balance) {
-      AppSnackBar.show(
-        context,
-        message: s.giftNotEnoughPoints(
-          cart.giftPoints + gift.pointsCost - balance,
-        ),
-      );
-      return;
-    }
-    if (!cart.addGift(gift)) {
+    if (!cart.addGift(gift, balance: balance)) {
+      // The cart refused something the gate allowed: the two disagree, which
+      // is a bug rather than a customer-facing state. Logged loudly for that
+      // reason.
+      _logGiftAttempt(gift, cart, loyalty, verdict: 'REFUSED by cart after the gate allowed it');
       AppSnackBar.show(context, message: s.giftLimitReached);
       return;
     }
+    _logGiftAttempt(gift, cart, loyalty, verdict: 'ADDED');
     AppSnackBar.show(context, message: s.giftAdded, kind: AppSnackKind.success);
+  }
+
+  /// What the points looked like at the moment the customer tapped "add".
+  ///
+  /// The balance comes from the server, the gift's price comes from the
+  /// catalogue and the running total comes from the cart — three sources that
+  /// have to agree for the order to go through, and the only place they meet
+  /// is this tap. Printing them together is what turns "it would not let me
+  /// add it" into something answerable without a debugger.
+  ///
+  /// Debug builds only; nothing here reaches a release.
+  static void _logGiftAttempt(
+    LoyaltyGift gift,
+    CartProvider cart,
+    LoyaltyProvider loyalty, {
+    GiftBlock? block,
+    required String verdict,
+  }) {
+    if (!kDebugMode) return;
+    final balance = loyalty.balance;
+
+    const badge = '\x1B[30;102m GIFT \x1B[0m';
+    const green = '\x1B[92m';
+    const red = '\x1B[91m';
+    const yellow = '\x1B[93m';
+    const dim = '\x1B[90m';
+    const reset = '\x1B[0m';
+
+    final allowed = verdict == 'ADDED';
+    final accent = allowed ? green : red;
+
+    // The cart is read *after* a successful add, so `giftPoints` already
+    // includes this gift. Reported both ways so neither number has to be
+    // worked out by hand from the other.
+    final committed = allowed ? cart.giftPoints - gift.pointsCost : cart.giftPoints;
+    final wanted = committed + gift.pointsCost;
+
+    void line(String label, Object? value) =>
+        debugPrint('$badge $dim${label.padRight(16)}$reset $value');
+
+    debugPrint('$badge $accent── $verdict ${'─' * 20}$reset');
+    line('gift', '${gift.name} $dim(${gift.id})$reset');
+    line('price', '$yellow${gift.pointsCost}$reset pts');
+    line(
+      'stock',
+      gift.isUnlimited ? 'unlimited' : (gift.isSoldOut ? '${red}sold out$reset' : '${gift.stock}'),
+    );
+    // A missing balance is a real state and not zero — an unknown balance
+    // lets the attempt through on purpose. But "not loaded" on its own says
+    // nothing about why, and the why is the whole question when the number
+    // never appears: still in flight, refused by the server, or never asked
+    // for because this server has no loyalty at all.
+    line(
+      'balance',
+      balance != null
+          ? '$green$balance$reset pts'
+          : loyalty.unavailable
+              ? '${red}no loyalty on this server$reset'
+              : loyalty.loadingAccount
+                  ? '${yellow}still loading…$reset'
+                  : loyalty.accountError != null
+                      ? '${red}FAILED$reset $dim${loyalty.accountError}$reset'
+                      : '${yellow}never requested$reset $dim(signed out, or loadAccount was not called)$reset',
+    );
+    line('already in cart', '$committed pts across ${cart.gifts.length} gift(s)');
+    line('this one brings', '$committed + ${gift.pointsCost} = $accent$wanted$reset pts');
+    if (balance != null) {
+      final left = balance - wanted;
+      line(
+        'after this',
+        left >= 0 ? '$green$left$reset pts left' : '$red${-left} pts short$reset',
+      );
+    }
+    if (block != null && !block.allowed) {
+      final short = block.reason == GiftBlockReason.notEnoughPoints
+          ? ' ($red${block.shortfall}$reset pts short)'
+          : '';
+      line('refused by', '$red${block.reason.name}$reset$short');
+    }
+    line('cart', '${cart.items.length} dish line(s), subtotal ${cart.subtotal}');
+    line('gift lines', cart.gifts.isEmpty
+        ? '$dim—$reset'
+        : cart.gifts.map((g) => '${g.gift.name}×${g.quantity}=${g.totalPoints}').join(', '));
+    debugPrint('$badge $accent${'─' * 34}$reset');
   }
 
   @override
@@ -91,10 +178,31 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          // The balance is the number every price on this screen is judged
+          // against, so a missing one is worth a tappable retry rather than
+          // an empty corner: without it the customer cannot tell whether a
+          // gift is out of reach or the app simply never asked.
           if (balance != null)
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: Center(child: Text(s.pointsValue(balance), style: AppText.h2.copyWith(fontSize: 15))),
+            )
+          else if (loyalty.loadingAccount)
+            const Padding(
+              padding: EdgeInsets.only(right: 20),
+              child: Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onBrand),
+                ),
+              ),
+            )
+          else if (context.watch<AuthProvider>().isSignedIn && !loyalty.unavailable)
+            IconButton(
+              tooltip: s.retry,
+              icon: const HugeIcon(icon: AppIcons.refresh, color: AppColors.onBrand, size: 20),
+              onPressed: () => context.read<LoyaltyProvider>().loadAccount(),
             ),
         ],
       ),
@@ -141,12 +249,33 @@ class _GiftCard extends StatelessWidget {
   final LoyaltyGift gift;
   final VoidCallback onAdd;
 
+  /// The cart's own refusal, worded for this screen.
+  ///
+  /// Signing in is deliberately not one of these. A guest browsing the shop
+  /// should be invited to sign in by tapping, not stonewalled by a dead
+  /// button — that refusal is handled in `_add`.
+  static String? reasonText(GiftBlock block, AppStrings s) =>
+      switch (block.reason) {
+        GiftBlockReason.none => null,
+        GiftBlockReason.noFood => s.giftNeedsFood,
+        GiftBlockReason.limitReached => s.giftLimitReached,
+        GiftBlockReason.notEnoughPoints =>
+          s.giftNotEnoughPoints(block.shortfall),
+      };
+
   @override
   Widget build(BuildContext context) {
     final s = context.s;
     final cart = context.watch<CartProvider>();
     final inCart = cart.giftQuantityOf(gift.id);
-    final canAdd = cart.canAddGifts && !gift.isSoldOut;
+    final block = cart.giftBlock(
+      gift,
+      balance: context.watch<LoyaltyProvider>().balance,
+    );
+    // Sold out is drawn across the thumbnail already, so it does not repeat
+    // itself as a line of text under the price.
+    final reason = gift.isSoldOut ? null : reasonText(block, s);
+    final canAdd = !gift.isSoldOut && block.allowed;
 
     return Container(
       // Same card language as the dish grid: white on the warm background,
@@ -185,7 +314,20 @@ class _GiftCard extends StatelessWidget {
                         children: [
                           _PointsChip(text: s.pointsValue(gift.pointsCost)),
                           const SizedBox(height: 4),
-                          _StockLine(gift: gift),
+                          // The stock line gives way to the reason the
+                          // button is dead: how many are left matters far
+                          // less than why this one cannot be taken.
+                          if (reason != null)
+                            Text(
+                              reason,
+                              style: AppText.label.copyWith(
+                                fontSize: 11,
+                                color: AppColors.orange,
+                              ),
+                              maxLines: 2,
+                            )
+                          else
+                            _StockLine(gift: gift),
                         ],
                       ),
                     ),
