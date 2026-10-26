@@ -1,6 +1,5 @@
 import 'package:flutter/widgets.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:iconly/iconly.dart';
 
 /// HugeIcons ships its glyphs as raw path data rather than an icon font, so
 /// this is the type every icon parameter in the app is declared with.
@@ -84,7 +83,21 @@ class AppIcons {
   // Iconly has no list glyph of its own; `document` — a page with lines on
   // it — is the closest, and next to `category`'s grid of squares the pair
   // reads as the two layouts it switches between.
-  static const IconData callOutline = IconlyLight.call;
-  static const IconData gridViewOutline = IconlyLight.category;
-  static const IconData listViewOutline = IconlyLight.document;
+  static const IconData callOutline = IconData(
+    0xe91b,
+    fontFamily: 'IconlyLight',
+  );
+  static const IconData gridViewOutline = IconData(
+    0xe920,
+    fontFamily: 'IconlyLight',
+  );
+  static const IconData listViewOutline = IconData(
+    0xe928,
+    fontFamily: 'IconlyLight',
+  );
+  static const IconData starOutline = IconData(
+    0xe951,
+    fontFamily: 'IconlyLight',
+  );
+  static const IconData starFilled = IconData(0xe951, fontFamily: 'IconlyBold');
 }

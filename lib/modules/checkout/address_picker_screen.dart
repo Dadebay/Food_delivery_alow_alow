@@ -139,7 +139,12 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
   void _onMapPositionChanged(MapCamera position, bool hasGesture) {
     _center = position.center;
     if (!hasGesture) return;
-    if (!_dragging) setState(() => _dragging = true);
+    if (!_dragging) {
+      // The old address text belongs to the old pin. Never allow it to be
+      // saved with a new point if reverse geocoding fails or runs slowly.
+      _district.clear();
+      setState(() => _dragging = true);
+    }
     // flutter_map doesn't fire a distinct "gesture ended" event, so a short
     // debounce after the last moved-with-gesture callback stands in for it.
     _dragEndTimer?.cancel();
@@ -325,7 +330,12 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
       ).showSnackBar(SnackBar(content: Text(context.sr.locationApproximate)));
     }
     final found = point;
-    setState(() => _center = found);
+    setState(() {
+      _center = found;
+      // A saved address is not the name of the customer's current position.
+      // Keep Save disabled until this point has its own resolved address.
+      _district.clear();
+    });
     // A programmatic move like this never reaches `_onMapPositionChanged`
     // with `hasGesture: true` — flutter_map only sets that flag for an
     // actual finger drag — so geocoding has to be kicked off by hand here,
@@ -537,6 +547,7 @@ class _AddressPickerScreenState extends State<AddressPickerScreen> {
                           padding: const EdgeInsets.fromLTRB(0, 0, 16, 12),
                           child: _MapButton(
                             icon: AppIcons.myLocation,
+                            label: s.useCurrentLocationAsAddress,
                             busy: _findingLocation,
                             onTap: _useMyLocation,
                           ),
@@ -824,11 +835,13 @@ class _MapButton extends StatelessWidget {
   const _MapButton({
     required this.icon,
     required this.onTap,
+    this.label,
     this.busy = false,
   });
 
   final HugeIconData icon;
   final VoidCallback onTap;
+  final String? label;
 
   /// Swaps the glyph for a spinner while the work behind the button runs.
   /// The spinner is sized to the glyph so the button does not resize.
@@ -836,28 +849,48 @@ class _MapButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shape = label == null ? const CircleBorder() : const StadiumBorder();
     return Material(
       color: AppColors.white,
-      shape: const CircleBorder(),
+      shape: shape,
       elevation: 3,
       shadowColor: AppColors.shadow,
       child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
+        onTap: busy ? null : onTap,
+        customBorder: shape,
         child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: busy
-                ? const Padding(
-                    padding: EdgeInsets.all(2),
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      color: AppColors.brand,
-                    ),
-                  )
-                : HugeIcon(icon: icon, color: AppColors.onBrand, size: 22),
+          padding: EdgeInsets.symmetric(
+            horizontal: label == null ? 12 : 16,
+            vertical: 12,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: busy
+                    ? const Padding(
+                        padding: EdgeInsets.all(2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: AppColors.brand,
+                        ),
+                      )
+                    : HugeIcon(icon: icon, color: AppColors.onBrand, size: 22),
+              ),
+              if (label != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  label!,
+                  style: AppText.body.copyWith(
+                    color: AppColors.onBrand,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

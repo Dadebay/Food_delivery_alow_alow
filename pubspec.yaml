@@ -66,7 +66,6 @@ dependencies:
   firebase_app_installations: ^0.4.2+6
   package_info_plus: ^10.2.1
   upgrader: 13.7.0
-  iconly: ^1.0.1
   timezone: ^0.10.1
 
 dev_dependencies:
@@ -107,6 +106,14 @@ flutter:
     - assets/panda_order.png
 
   fonts:
+    - family: IconlyLight
+      fonts:
+        - asset: assets/fonts/IconlyLight.ttf
+
+    - family: IconlyBold
+      fonts:
+        - asset: assets/fonts/IconlyBold.ttf
+
     # Display face used for the brand wordmark only (shimmer placeholders).
     - family: Qurova
       fonts:

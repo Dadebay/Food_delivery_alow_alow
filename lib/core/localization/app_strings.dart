@@ -127,6 +127,7 @@ abstract class AppStrings {
   String get orderCommentLabel;
   String get orderCommentHint;
   String get orderCommentOptional;
+
   /// Multiline fields get no "done" key on the iOS keyboard, so the comment
   /// card shows its own button while the field has focus.
   String get keyboardDoneAction;
@@ -241,6 +242,7 @@ abstract class AppStrings {
   String get offlineNoConnection;
   String get locationDenied;
   String get locationDeniedHint;
+  String get useCurrentLocationAsAddress;
 
   /// Permission is granted and the service is on, the receiver just has
   /// nothing — the indoor case, where "no access" would be a lie.
@@ -502,7 +504,8 @@ class StringsRu extends AppStrings {
   @override
   String get orderCommentLabel => 'Комментарий к заказу';
   @override
-  String get orderCommentHint => 'Например: без лука, позвоните перед доставкой';
+  String get orderCommentHint =>
+      'Например: без лука, позвоните перед доставкой';
   @override
   String get orderCommentOptional => 'необязательно';
   @override
@@ -711,6 +714,8 @@ class StringsRu extends AppStrings {
   @override
   String get locationDeniedHint =>
       'Разрешите доступ, чтобы указать адрес на карте.';
+  @override
+  String get useCurrentLocationAsAddress => 'Адрес по геолокации';
   @override
   String get locationNoFix =>
       'Не удалось определить местоположение — отметьте дом на карте вручную.';
@@ -1213,6 +1218,8 @@ class StringsTm extends AppStrings {
   String get locationDenied => 'Geolokasiýa rugsat ýok';
   @override
   String get locationDeniedHint => 'Kartada salgy görkezmek üçin rugsat beriň.';
+  @override
+  String get useCurrentLocationAsAddress => 'Duran ýerimi salgy et';
   @override
   String get locationNoFix =>
       'Ýerleşýän ýeriňiz kesgitlenmedi — jaýy kartada özüňiz belläň.';

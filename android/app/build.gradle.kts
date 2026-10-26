@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 import java.util.Properties
 
 plugins {
@@ -28,10 +30,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         applicationId = "com.gurbanov.alowalow"
         minSdk = flutter.minSdkVersion
@@ -53,6 +51,12 @@ android {
                 signingConfig = signingConfigs.getByName("debug")
             }
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
