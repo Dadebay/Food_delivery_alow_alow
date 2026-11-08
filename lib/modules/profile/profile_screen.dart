@@ -27,18 +27,9 @@ import '../checkout/address_provider.dart';
 import 'saved_addresses_screen.dart';
 import 'widgets/flame_avatar_video.dart';
 
-/// The customer's own screen — identity, addresses, promo codes, settings,
-/// support, and sign-in/out. There's no name field behind the phone-only
-/// auth yet (proposal slide 5 doesn't collect one), so the identity card's
-/// name and order count are [MockData] placeholders, not real account data.
-///
-/// Orders and payment method aren't duplicated here — Orders already has its
-/// own bottom-nav tab, and there's only cash payment for now, so there's
-/// nothing to configure yet.
-///
-/// Everything under "Аккаунт" (saved addresses, promo codes) is presented
-/// with mock data for now — there is no backend for any of it yet, but the
-/// screen the customer sees is finished and testable ahead of that.
+/// Customer account screen for identity, saved addresses, language, support,
+/// and sign-out. Account deletion is not offered until the backend can perform
+/// it; signing out only clears this device's session.
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 

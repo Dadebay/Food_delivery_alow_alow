@@ -61,7 +61,7 @@ class AuthRepository {
   /// that requires an account (Orders, Profile) would show nothing but a
   /// sign-in prompt on first launch, with no way to see the seeded mock data
   /// without first running the phone + code screen. Signing out still works
-  /// normally, and the phone/code flow is still there to demo (code `0000`)
+  /// normally, and the phone/code flow is still there to demo (code `000000`)
   /// once signed out.
   void restore() {
     if (AppConfig.useMockData && token == null) {
