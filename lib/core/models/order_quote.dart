@@ -86,6 +86,7 @@ class OrderQuote {
     this.loyaltyPointsEarned,
     this.loyaltyPointsSpent,
     this.pointsBalance,
+    this.isEstimate = false,
   });
 
   final double subtotal;
@@ -93,6 +94,10 @@ class OrderQuote {
   final double discountedSubtotal;
   final double deliveryFee;
   final double total;
+
+  /// The quote endpoint did not return usable pricing; displayed amounts are
+  /// estimates until the server confirms them during order creation.
+  final bool isEstimate;
 
   final List<QuotedItem> items;
 
@@ -128,10 +133,7 @@ class OrderQuote {
   ///
   /// It carries no loyalty numbers: guessing what an order will earn, or
   /// what a gift will cost, is exactly the arithmetic the server owns.
-  factory OrderQuote.estimate({
-    required double subtotal,
-    double? deliveryFee,
-  }) {
+  factory OrderQuote.estimate({required double subtotal, double? deliveryFee}) {
     final fee = deliveryFee ?? AppConfig.fallbackDeliveryFee;
     return OrderQuote(
       subtotal: subtotal,
@@ -139,6 +141,7 @@ class OrderQuote {
       discountedSubtotal: subtotal,
       deliveryFee: fee,
       total: subtotal + fee,
+      isEstimate: true,
     );
   }
 
@@ -146,11 +149,11 @@ class OrderQuote {
     Map<String, dynamic> json, {
     String? Function(Object?)? resolveImage,
   }) => OrderQuote(
-    subtotal: readDouble(json['subtotal']) ?? 0,
-    discount: readDouble(json['discount']) ?? 0,
-    discountedSubtotal: readDouble(json['discountedSubtotal']) ?? 0,
-    deliveryFee: readDouble(json['deliveryFee']) ?? 0,
-    total: readDouble(json['total']) ?? 0,
+    subtotal: readRequiredDouble(json, 'subtotal'),
+    discount: readRequiredDouble(json, 'discount'),
+    discountedSubtotal: readRequiredDouble(json, 'discountedSubtotal'),
+    deliveryFee: readRequiredDouble(json, 'deliveryFee'),
+    total: readRequiredDouble(json, 'total'),
     items: (json['items'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
         .map(QuotedItem.fromJson)

@@ -68,7 +68,7 @@ class TariffQuote {
       validUntil != null && DateTime.now().toUtc().isAfter(validUntil!.toUtc());
 
   factory TariffQuote.fromJson(Map<String, dynamic> json) => TariffQuote(
-    fee: readDouble(json['fee']) ?? 0,
+    fee: readRequiredDouble(json, 'fee'),
     pricingMode: json['pricingMode'] as String?,
     distanceMeters: readDouble(json['distanceMeters']),
     tariff: readDouble(json['tariff']),

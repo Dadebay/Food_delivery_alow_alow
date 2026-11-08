@@ -15,6 +15,16 @@ double? readDouble(Object? value) => switch (value) {
   _ => null,
 };
 
+/// Required API money field. Missing or malformed values must never appear
+/// to customers as a real zero price.
+double readRequiredDouble(Map<String, dynamic> json, String field) {
+  final value = readDouble(json[field]);
+  if (value == null || !value.isFinite) {
+    throw FormatException('Missing or invalid numeric field: $field');
+  }
+  return value;
+}
+
 /// The whole-number form of [readDouble]. Accepts `"12"` and `12.0` alike;
 /// a fractional string is truncated the same way `num.toInt()` would.
 int? readInt(Object? value) => readDouble(value)?.toInt();
