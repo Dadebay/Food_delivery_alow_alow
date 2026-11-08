@@ -46,7 +46,10 @@ class _MyPointsScreenState extends State<MyPointsScreen> {
       appBar: AppBar(
         title: Text(s.myPoints),
         leading: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, color: AppColors.onBrand),
+          icon: HugeIcon(
+            icon: HugeIcons.strokeRoundedArrowLeft01,
+            color: AppColors.onBrand,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         centerTitle: true,
@@ -66,7 +69,13 @@ class _MyPointsScreenState extends State<MyPointsScreen> {
                     padding: const EdgeInsets.only(left: 4, bottom: 10),
                     child: Text(s.myPointsSubtitle, style: AppText.label),
                   ),
-                  if (account == null || account.entries.isEmpty) _EmptyHistory(s: s) else for (final entry in account.entries) ...[_EntryRow(entry: entry, s: s), const SizedBox(height: 8)],
+                  if (account == null || account.entries.isEmpty)
+                    _EmptyHistory(s: s)
+                  else
+                    for (final entry in account.entries) ...[
+                      _EntryRow(entry: entry, s: s),
+                      const SizedBox(height: 8),
+                    ],
                 ],
               ),
             ),
@@ -92,9 +101,19 @@ class _BalanceCard extends StatelessWidget {
       decoration: BoxDecoration(
         // Duz sari yerine hafif bir gecis: kart, altindaki beyaz satirlardan
         // bir yuzey olarak ayrilsin.
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppColors.brandLight, AppColors.brand]),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.brandLight, AppColors.brand],
+        ),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: const [BoxShadow(color: AppColors.shadow, blurRadius: 18, offset: Offset(0, 8))],
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,12 +122,22 @@ class _BalanceCard extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(9),
-                decoration: BoxDecoration(color: AppColors.white.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(13)),
-                child: const HugeIcon(icon: HugeIcons.strokeRoundedStar, color: AppColors.onBrand, size: 20),
+                decoration: BoxDecoration(
+                  color: AppColors.white.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedStar,
+                  color: AppColors.onBrand,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(s.pointsBalanceLabel, style: AppText.label.copyWith(color: AppColors.brandMuted)),
+                child: Text(
+                  s.pointsBalanceLabel,
+                  style: AppText.label.copyWith(color: AppColors.brandMuted),
+                ),
               ),
             ],
           ),
@@ -132,15 +161,26 @@ class _BalanceCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GiftShopScreen())),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const GiftShopScreen()),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const HugeIcon(icon: HugeIcons.strokeRoundedGift, color: AppColors.brand, size: 19),
+                        const HugeIcon(
+                          icon: HugeIcons.strokeRoundedGift,
+                          color: AppColors.brand,
+                          size: 19,
+                        ),
                         const SizedBox(width: 9),
-                        Text(s.giftShop, style: AppText.button.copyWith(color: AppColors.brand)),
+                        Text(
+                          s.giftShop,
+                          style: AppText.button.copyWith(
+                            color: AppColors.brand,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -182,7 +222,10 @@ class _EntryRow extends StatelessWidget {
           Container(
             width: 38,
             height: 38,
-            decoration: BoxDecoration(color: wash, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: wash,
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Center(
               child: HugeIcon(icon: icon, color: tint, size: 18),
             ),
@@ -192,12 +235,24 @@ class _EntryRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_label(s, entry.kind), style: AppText.h2.copyWith(fontSize: 14)),
-                if (entry.createdAt != null) ...[const SizedBox(height: 2), Text('${Fmt.date(entry.createdAt!)} · ${Fmt.time(entry.createdAt!)}', style: AppText.bodyMuted.copyWith(fontSize: 12))],
+                Text(
+                  _label(s, entry.kind),
+                  style: AppText.h2.copyWith(fontSize: 14),
+                ),
+                if (entry.createdAt != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '${Fmt.date(entry.createdAt!)} · ${Fmt.time(entry.createdAt!)}',
+                    style: AppText.bodyMuted.copyWith(fontSize: 12),
+                  ),
+                ],
               ],
             ),
           ),
-          Text('${positive ? '+' : ''}${s.pointsValue(entry.points)}', style: AppText.h2.copyWith(fontSize: 15, color: tint)),
+          Text(
+            '${positive ? '+' : ''}${s.pointsValue(entry.points)}',
+            style: AppText.h2.copyWith(fontSize: 15, color: tint),
+          ),
         ],
       ),
     );
@@ -208,12 +263,35 @@ class _EntryRow extends StatelessWidget {
   /// Isaret sunucunun kendi sayisindan geliyor (bkz. yukarisi), bu yuzden
   /// renk de ona bagli: bilinmeyen bir tur geldiginde bile kazanc yesil,
   /// harcama noturdur.
-  static (List<List<dynamic>>, Color, Color) _look(LoyaltyEntryKind kind, bool positive) => switch (kind) {
-    LoyaltyEntryKind.earn => (HugeIcons.strokeRoundedArrowUp01, AppColors.success, AppColors.successSoft),
-    LoyaltyEntryKind.redeem => (HugeIcons.strokeRoundedGift, AppColors.orange, AppColors.orangeSoft),
-    LoyaltyEntryKind.refund => (HugeIcons.strokeRoundedRefresh, AppColors.goldInk, AppColors.goldSoft),
-    LoyaltyEntryKind.reverseEarn => (HugeIcons.strokeRoundedArrowDown01, AppColors.red, AppColors.redSoft),
-    LoyaltyEntryKind.unknown => (HugeIcons.strokeRoundedCircle, positive ? AppColors.success : AppColors.textSecondary, AppColors.neutralGrey),
+  static (List<List<dynamic>>, Color, Color) _look(
+    LoyaltyEntryKind kind,
+    bool positive,
+  ) => switch (kind) {
+    LoyaltyEntryKind.earn => (
+      HugeIcons.strokeRoundedArrowUp01,
+      AppColors.success,
+      AppColors.successSoft,
+    ),
+    LoyaltyEntryKind.redeem => (
+      HugeIcons.strokeRoundedGift,
+      AppColors.orange,
+      AppColors.orangeSoft,
+    ),
+    LoyaltyEntryKind.refund => (
+      HugeIcons.strokeRoundedRefresh,
+      AppColors.goldInk,
+      AppColors.goldSoft,
+    ),
+    LoyaltyEntryKind.reverseEarn => (
+      HugeIcons.strokeRoundedArrowDown01,
+      AppColors.red,
+      AppColors.redSoft,
+    ),
+    LoyaltyEntryKind.unknown => (
+      HugeIcons.strokeRoundedCircle,
+      positive ? AppColors.success : AppColors.textSecondary,
+      AppColors.neutralGrey,
+    ),
   };
 
   static String _label(AppStrings s, LoyaltyEntryKind kind) => switch (kind) {
@@ -248,11 +326,22 @@ class _EmptyHistory extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(14),
-          decoration: const BoxDecoration(color: AppColors.neutralGrey, shape: BoxShape.circle),
-          child: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, color: AppColors.textMuted, size: 24),
+          decoration: const BoxDecoration(
+            color: AppColors.neutralGrey,
+            shape: BoxShape.circle,
+          ),
+          child: const HugeIcon(
+            icon: HugeIcons.strokeRoundedClock01,
+            color: AppColors.textMuted,
+            size: 24,
+          ),
         ),
         const SizedBox(height: 14),
-        Text(s.pointsHistoryEmpty, textAlign: TextAlign.center, style: AppText.bodyMuted),
+        Text(
+          s.pointsHistoryEmpty,
+          textAlign: TextAlign.center,
+          style: AppText.bodyMuted,
+        ),
       ],
     ),
   );

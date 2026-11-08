@@ -122,8 +122,7 @@ class AddressProvider extends ChangeNotifier {
       }
       return;
     }
-    final byDistance =
-        _config.distancePricingEnabled && _delivery != null;
+    final byDistance = _config.distancePricingEnabled && _delivery != null;
     _log(
       'requesting   ${_describe(_address!)} subtotal=$subtotal '
       'via ${byDistance ? "tariff-quote (per km)" : "delivery/quote (per etrap)"}',

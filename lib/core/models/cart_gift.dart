@@ -15,8 +15,5 @@ class CartGift {
   /// prices the whole order and its own number is the one that is charged.
   int get totalPoints => gift.pointsCost * quantity;
 
-  Map<String, dynamic> toJson() => {
-    'giftId': gift.id,
-    'quantity': quantity,
-  };
+  Map<String, dynamic> toJson() => {'giftId': gift.id, 'quantity': quantity};
 }

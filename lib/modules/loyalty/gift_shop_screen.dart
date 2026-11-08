@@ -63,14 +63,22 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
     final block = cart.giftBlock(gift, balance: balance);
     if (!block.allowed) {
       _logGiftAttempt(gift, cart, loyalty, block: block, verdict: 'REFUSED');
-      AppSnackBar.show(context, message: _GiftCard.reasonText(block, s) ?? s.giftLimitReached);
+      AppSnackBar.show(
+        context,
+        message: _GiftCard.reasonText(block, s) ?? s.giftLimitReached,
+      );
       return;
     }
     if (!cart.addGift(gift, balance: balance)) {
       // The cart refused something the gate allowed: the two disagree, which
       // is a bug rather than a customer-facing state. Logged loudly for that
       // reason.
-      _logGiftAttempt(gift, cart, loyalty, verdict: 'REFUSED by cart after the gate allowed it');
+      _logGiftAttempt(
+        gift,
+        cart,
+        loyalty,
+        verdict: 'REFUSED by cart after the gate allowed it',
+      );
       AppSnackBar.show(context, message: s.giftLimitReached);
       return;
     }
@@ -110,7 +118,9 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
     // The cart is read *after* a successful add, so `giftPoints` already
     // includes this gift. Reported both ways so neither number has to be
     // worked out by hand from the other.
-    final committed = allowed ? cart.giftPoints - gift.pointsCost : cart.giftPoints;
+    final committed = allowed
+        ? cart.giftPoints - gift.pointsCost
+        : cart.giftPoints;
     final wanted = committed + gift.pointsCost;
 
     void line(String label, Object? value) =>
@@ -121,7 +131,9 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
     line('price', '$yellow${gift.pointsCost}$reset pts');
     line(
       'stock',
-      gift.isUnlimited ? 'unlimited' : (gift.isSoldOut ? '${red}sold out$reset' : '${gift.stock}'),
+      gift.isUnlimited
+          ? 'unlimited'
+          : (gift.isSoldOut ? '${red}sold out$reset' : '${gift.stock}'),
     );
     // A missing balance is a real state and not zero — an unknown balance
     // lets the attempt through on purpose. But "not loaded" on its own says
@@ -133,20 +145,28 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
       balance != null
           ? '$green$balance$reset pts'
           : loyalty.unavailable
-              ? '${red}no loyalty on this server$reset'
-              : loyalty.loadingAccount
-                  ? '${yellow}still loading…$reset'
-                  : loyalty.accountError != null
-                      ? '${red}FAILED$reset $dim${loyalty.accountError}$reset'
-                      : '${yellow}never requested$reset $dim(signed out, or loadAccount was not called)$reset',
+          ? '${red}no loyalty on this server$reset'
+          : loyalty.loadingAccount
+          ? '${yellow}still loading…$reset'
+          : loyalty.accountError != null
+          ? '${red}FAILED$reset $dim${loyalty.accountError}$reset'
+          : '${yellow}never requested$reset $dim(signed out, or loadAccount was not called)$reset',
     );
-    line('already in cart', '$committed pts across ${cart.gifts.length} gift(s)');
-    line('this one brings', '$committed + ${gift.pointsCost} = $accent$wanted$reset pts');
+    line(
+      'already in cart',
+      '$committed pts across ${cart.gifts.length} gift(s)',
+    );
+    line(
+      'this one brings',
+      '$committed + ${gift.pointsCost} = $accent$wanted$reset pts',
+    );
     if (balance != null) {
       final left = balance - wanted;
       line(
         'after this',
-        left >= 0 ? '$green$left$reset pts left' : '$red${-left} pts short$reset',
+        left >= 0
+            ? '$green$left$reset pts left'
+            : '$red${-left} pts short$reset',
       );
     }
     if (block != null && !block.allowed) {
@@ -155,10 +175,18 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
           : '';
       line('refused by', '$red${block.reason.name}$reset$short');
     }
-    line('cart', '${cart.items.length} dish line(s), subtotal ${cart.subtotal}');
-    line('gift lines', cart.gifts.isEmpty
-        ? '$dim—$reset'
-        : cart.gifts.map((g) => '${g.gift.name}×${g.quantity}=${g.totalPoints}').join(', '));
+    line(
+      'cart',
+      '${cart.items.length} dish line(s), subtotal ${cart.subtotal}',
+    );
+    line(
+      'gift lines',
+      cart.gifts.isEmpty
+          ? '$dim—$reset'
+          : cart.gifts
+                .map((g) => '${g.gift.name}×${g.quantity}=${g.totalPoints}')
+                .join(', '),
+    );
     debugPrint('$badge $accent${'─' * 34}$reset');
   }
 
@@ -174,7 +202,10 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
         title: Text(s.giftShop),
         centerTitle: true,
         leading: IconButton(
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, color: AppColors.onBrand),
+          icon: HugeIcon(
+            icon: HugeIcons.strokeRoundedArrowLeft01,
+            color: AppColors.onBrand,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
@@ -185,7 +216,12 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
           if (balance != null)
             Padding(
               padding: const EdgeInsets.only(right: 16),
-              child: Center(child: Text(s.pointsValue(balance), style: AppText.h2.copyWith(fontSize: 15))),
+              child: Center(
+                child: Text(
+                  s.pointsValue(balance),
+                  style: AppText.h2.copyWith(fontSize: 15),
+                ),
+              ),
             )
           else if (loyalty.loadingAccount)
             const Padding(
@@ -194,14 +230,22 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
                 child: SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onBrand),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.onBrand,
+                  ),
                 ),
               ),
             )
-          else if (context.watch<AuthProvider>().isSignedIn && !loyalty.unavailable)
+          else if (context.watch<AuthProvider>().isSignedIn &&
+              !loyalty.unavailable)
             IconButton(
               tooltip: s.retry,
-              icon: const HugeIcon(icon: AppIcons.refresh, color: AppColors.onBrand, size: 20),
+              icon: const HugeIcon(
+                icon: AppIcons.refresh,
+                color: AppColors.onBrand,
+                size: 20,
+              ),
               onPressed: () => context.read<LoyaltyProvider>().loadAccount(),
             ),
         ],
@@ -218,13 +262,20 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
     // reaches here — the Profile row that opens this screen is itself
     // hidden when the feature is absent.
     if (loyalty.giftsError != null && loyalty.gifts.isEmpty) {
-      return _Retry(message: s.orderStateChanged, onRetry: () => context.read<LoyaltyProvider>().loadGifts());
+      return _Retry(
+        message: s.orderStateChanged,
+        onRetry: () => context.read<LoyaltyProvider>().loadGifts(),
+      );
     }
     if (loyalty.gifts.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
-          child: Text(s.giftShopEmpty, textAlign: TextAlign.center, style: AppText.bodyMuted),
+          child: Text(
+            s.giftShopEmpty,
+            textAlign: TextAlign.center,
+            style: AppText.bodyMuted,
+          ),
         ),
       );
     }
@@ -259,8 +310,9 @@ class _GiftCard extends StatelessWidget {
         GiftBlockReason.none => null,
         GiftBlockReason.noFood => s.giftNeedsFood,
         GiftBlockReason.limitReached => s.giftLimitReached,
-        GiftBlockReason.notEnoughPoints =>
-          s.giftNotEnoughPoints(block.shortfall),
+        GiftBlockReason.notEnoughPoints => s.giftNotEnoughPoints(
+          block.shortfall,
+        ),
       };
 
   @override
@@ -283,12 +335,22 @@ class _GiftCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 16, offset: const Offset(0, 6))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.07),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(10),
       child: Row(
         children: [
-          _GiftThumb(url: gift.imageUrl, soldOut: gift.isSoldOut, soldOutLabel: s.giftOutOfStock),
+          _GiftThumb(
+            url: gift.imageUrl,
+            soldOut: gift.isSoldOut,
+            soldOutLabel: s.giftOutOfStock,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -297,13 +359,25 @@ class _GiftCard extends StatelessWidget {
               children: [
                 Text(
                   gift.name,
-                  style: AppText.body.copyWith(fontSize: 15, fontWeight: FontWeight.w700, height: 1.25),
+                  style: AppText.body.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (gift.description.isNotEmpty) ...[
                   const SizedBox(height: 3),
-                  Text(gift.description, style: AppText.bodyMuted.copyWith(fontSize: 12, height: 1.3), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(
+                    gift.description,
+                    style: AppText.bodyMuted.copyWith(
+                      fontSize: 12,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
                 const SizedBox(height: 10),
                 Row(
@@ -332,7 +406,11 @@ class _GiftCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _AddGiftButton(label: s.addGift, inCart: inCart, onTap: canAdd ? onAdd : null),
+                    _AddGiftButton(
+                      label: s.addGift,
+                      inCart: inCart,
+                      onTap: canAdd ? onAdd : null,
+                    ),
                   ],
                 ),
               ],
@@ -348,7 +426,11 @@ class _GiftCard extends StatelessWidget {
 /// washed out with the reason written across it, so it reads as unavailable
 /// before the customer gets as far as the disabled button.
 class _GiftThumb extends StatelessWidget {
-  const _GiftThumb({required this.url, required this.soldOut, required this.soldOutLabel});
+  const _GiftThumb({
+    required this.url,
+    required this.soldOut,
+    required this.soldOutLabel,
+  });
 
   final String? url;
   final bool soldOut;
@@ -375,11 +457,20 @@ class _GiftThumb extends StatelessWidget {
                 color: AppColors.white.withValues(alpha: 0.65),
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: AppColors.textPrimary, borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.textPrimary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: Text(
                       soldOutLabel,
-                      style: AppText.label.copyWith(color: AppColors.white, fontSize: 10),
+                      style: AppText.label.copyWith(
+                        color: AppColors.white,
+                        fontSize: 10,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -402,16 +493,26 @@ class _PointsChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(7, 4, 9, 4),
-      decoration: BoxDecoration(color: AppColors.goldSoft, borderRadius: BorderRadius.circular(9)),
+      decoration: BoxDecoration(
+        color: AppColors.goldSoft,
+        borderRadius: BorderRadius.circular(9),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const HugeIcon(icon: AppIcons.star, color: AppColors.goldInk, size: 13),
+          const HugeIcon(
+            icon: AppIcons.star,
+            color: AppColors.goldInk,
+            size: 13,
+          ),
           const SizedBox(width: 4),
           Flexible(
             child: Text(
               text,
-              style: AppText.chip.copyWith(color: AppColors.goldInk, fontWeight: FontWeight.w700),
+              style: AppText.chip.copyWith(
+                color: AppColors.goldInk,
+                fontWeight: FontWeight.w700,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -445,7 +546,9 @@ class _StockLine extends StatelessWidget {
       color = AppColors.textSecondary;
     } else {
       text = s.giftsLeft(gift.stock!);
-      color = gift.stock! <= _lowStock ? AppColors.orange : AppColors.textSecondary;
+      color = gift.stock! <= _lowStock
+          ? AppColors.orange
+          : AppColors.textSecondary;
     }
     return Text(
       text,
@@ -460,7 +563,11 @@ class _StockLine extends StatelessWidget {
 /// the cart riding on its corner. Disabled, it goes flat and grey instead of
 /// just dimming, so it can't be mistaken for a pressable yellow.
 class _AddGiftButton extends StatelessWidget {
-  const _AddGiftButton({required this.label, required this.inCart, required this.onTap});
+  const _AddGiftButton({
+    required this.label,
+    required this.inCart,
+    required this.onTap,
+  });
 
   final String label;
   final int inCart;
@@ -481,7 +588,14 @@ class _AddGiftButton extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(13),
-          boxShadow: [if (enabled) BoxShadow(color: AppColors.brand.withValues(alpha: 0.45), blurRadius: 12, offset: const Offset(0, 4))],
+          boxShadow: [
+            if (enabled)
+              BoxShadow(
+                color: AppColors.brand.withValues(alpha: 0.45),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+          ],
         ),
         child: Material(
           color: enabled ? AppColors.brand : AppColors.divider,
@@ -496,7 +610,13 @@ class _AddGiftButton extends StatelessWidget {
                 children: [
                   HugeIcon(icon: AppIcons.plus, color: foreground, size: 16),
                   const SizedBox(width: 4),
-                  Text(label, style: AppText.button.copyWith(fontSize: 13, color: foreground)),
+                  Text(
+                    label,
+                    style: AppText.button.copyWith(
+                      fontSize: 13,
+                      color: foreground,
+                    ),
+                  ),
                 ],
               ),
             ),

@@ -118,14 +118,18 @@ class _TimelineRow extends StatelessWidget {
                       label,
                       style: AppText.body.copyWith(
                         fontWeight: reached ? FontWeight.w700 : FontWeight.w500,
-                        color: reached ? AppColors.textPrimary : AppColors.textMuted,
+                        color: reached
+                            ? AppColors.textPrimary
+                            : AppColors.textMuted,
                       ),
                     ),
                   ),
                   if (current)
                     Text(
                       '—',
-                      style: AppText.bodyMuted.copyWith(color: AppColors.orange),
+                      style: AppText.bodyMuted.copyWith(
+                        color: AppColors.orange,
+                      ),
                     )
                   else if (time != null)
                     Text(Fmt.time(time!), style: AppText.bodyMuted),

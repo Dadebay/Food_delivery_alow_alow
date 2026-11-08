@@ -61,16 +61,18 @@ class DeliveryQuote {
   factory DeliveryQuote.fromJson(Map<String, dynamic> json) {
     final etrap = json['etrap'] as Map<String, dynamic>?;
     return DeliveryQuote(
-      fee: readDouble(json['fee']) ?? 0,
-      price: readDouble(json['price']) ?? 0,
+      fee: readRequiredDouble(json, 'fee'),
+      price: readRequiredDouble(json, 'price'),
       freeDeliveryThreshold: readDouble(json['freeDeliveryThreshold']),
       // The district arrives nested under `etrap`, but a flat `etrapId`
       // alongside it is read too: missing the id is not cosmetic — checkout
       // sends it back with the order, and without it the server prices
       // delivery with no district at all.
       etrapId: etrap?['id'] as int? ?? json['etrapId'] as int?,
-      etrapNameRu: etrap?['nameRu'] as String? ?? json['etrapNameRu'] as String?,
-      etrapNameTk: etrap?['nameTk'] as String? ?? json['etrapNameTk'] as String?,
+      etrapNameRu:
+          etrap?['nameRu'] as String? ?? json['etrapNameRu'] as String?,
+      etrapNameTk:
+          etrap?['nameTk'] as String? ?? json['etrapNameTk'] as String?,
       matched: json['matched'] as bool? ?? false,
     );
   }

@@ -47,8 +47,16 @@ android {
                     storeFile = file(keystoreProperties["storeFile"] as String)
                     storePassword = keystoreProperties["storePassword"] as String
                 }
-            } else {
-                signingConfig = signingConfigs.getByName("debug")
+            }
+        }
+    }
+}
+
+if (!keystorePropertiesFile.exists()) {
+    tasks.configureEach {
+        if (name.contains("Release", ignoreCase = true)) {
+            doFirst {
+                throw GradleException("Release signing requires android/key.properties and the upload keystore")
             }
         }
     }

@@ -512,7 +512,11 @@ class _AuthCard extends StatelessWidget {
         color: AppColors.cream,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         boxShadow: [
-          BoxShadow(color: Color(0x33000000), blurRadius: 24, offset: Offset(0, -6)),
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 24,
+            offset: Offset(0, -6),
+          ),
         ],
       ),
       padding: EdgeInsets.fromLTRB(

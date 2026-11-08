@@ -46,36 +46,51 @@ class _LanguageSelectScreenState extends State<LanguageSelectScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520, maxHeight: 820),
             child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              Image.asset('assets/logo_text.png', height: 160),
-              const Spacer(flex: 1),
-              Padding(padding: const EdgeInsets.only(right: 25), child: Image.asset('assets/logo_icon.png', height: 220)),
-              const Spacer(flex: 2),
-              Text(
-                s.chooseLanguage,
-                textAlign: TextAlign.center,
-                style: AppText.h1.copyWith(fontSize: 24, color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 24),
-              Row(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
                 children: [
-                  for (final option in LocaleProvider.supported)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: _LanguageCard(strings: option, selected: option.languageCode == _selected.languageCode, onTap: () => setState(() => _selected = option)),
-                      ),
+                  const SizedBox(height: 12),
+                  Image.asset('assets/logo_text.png', height: 160),
+                  const Spacer(flex: 1),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 25),
+                    child: Image.asset('assets/logo_icon.png', height: 220),
+                  ),
+                  const Spacer(flex: 2),
+                  Text(
+                    s.chooseLanguage,
+                    textAlign: TextAlign.center,
+                    style: AppText.h1.copyWith(
+                      fontSize: 24,
+                      color: AppColors.textPrimary,
                     ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      for (final option in LocaleProvider.supported)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: _LanguageCard(
+                              strings: option,
+                              selected:
+                                  option.languageCode == _selected.languageCode,
+                              onTap: () => setState(() => _selected = option),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const Spacer(flex: 3),
+                  AppButton(
+                    label: s.onboardingNext,
+                    onPressed: () =>
+                        context.read<LocaleProvider>().select(_selected),
+                  ),
+                  const SizedBox(height: 12),
                 ],
               ),
-              const Spacer(flex: 3),
-              AppButton(label: s.onboardingNext, onPressed: () => context.read<LocaleProvider>().select(_selected)),
-              const SizedBox(height: 12),
-            ],
-          ),
             ),
           ),
         ),
@@ -85,7 +100,11 @@ class _LanguageSelectScreenState extends State<LanguageSelectScreen> {
 }
 
 class _LanguageCard extends StatelessWidget {
-  const _LanguageCard({required this.strings, required this.selected, required this.onTap});
+  const _LanguageCard({
+    required this.strings,
+    required this.selected,
+    required this.onTap,
+  });
 
   final AppStrings strings;
   final bool selected;
@@ -103,10 +122,18 @@ class _LanguageCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: selected ? null : Border.all(color: AppColors.divider, width: 1.5),
+            border: selected
+                ? null
+                : Border.all(color: AppColors.divider, width: 1.5),
           ),
           child: Center(
-            child: Text(strings.languageName, style: AppText.button.copyWith(fontSize: 15, color: selected ? AppColors.onBrand : AppColors.textPrimary)),
+            child: Text(
+              strings.languageName,
+              style: AppText.button.copyWith(
+                fontSize: 15,
+                color: selected ? AppColors.onBrand : AppColors.textPrimary,
+              ),
+            ),
           ),
         ),
       ),

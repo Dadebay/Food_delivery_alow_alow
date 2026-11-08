@@ -121,9 +121,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
           // No panel behind it: the animation carries its own transparency
           // now, so the page's own surface shows through instead of a flat
           // grey rectangle the size of the screen.
-          ? Center(
-              child: DeliveryLoader(size: 200, message: s.loadingHint),
-            )
+          ? Center(child: DeliveryLoader(size: 200, message: s.loadingHint))
           : GridView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.all(10),

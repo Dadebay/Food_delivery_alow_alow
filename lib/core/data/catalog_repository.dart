@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-
 import '../constants/app_config.dart';
 import '../models/cafe.dart';
 import '../models/dish.dart';
@@ -92,9 +91,9 @@ class CatalogRepository {
   }) async {
     if (AppConfig.useMockData) {
       await _demoDelay();
-      return MockData.dishesForCafe(cafeId)
-          .where((dish) => dish.categoryId == categoryId)
-          .toList();
+      return MockData.dishesForCafe(
+        cafeId,
+      ).where((dish) => dish.categoryId == categoryId).toList();
     }
     final response = await _api.get(
       ApiPaths.products,
@@ -219,7 +218,9 @@ class CatalogRepository {
 
   String? _absoluteImageUrl(Object? rawUrl) {
     if (rawUrl is! String || rawUrl.isEmpty) return null;
-    final resolved = Uri.parse(ApiClient.currentBaseUrl).resolve(rawUrl).toString();
+    final resolved = Uri.parse(
+      ApiClient.currentBaseUrl,
+    ).resolve(rawUrl).toString();
     assert(() {
       if (!_loggedImageUrl) {
         _loggedImageUrl = true;

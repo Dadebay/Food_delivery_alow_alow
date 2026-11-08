@@ -26,7 +26,6 @@ class DishThumbnail extends StatelessWidget {
   final Dish dish;
   final BorderRadius? borderRadius;
 
-
   /// Shown instead of [dish.imageUrl] when set — e.g. the photo of whichever
   /// variant is currently selected on the dish's own page. Falls back to
   /// the dish's own photo when the variant has none of its own.

@@ -1,11 +1,7 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
-import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
-import 'package:dio/io.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:dio_cache_interceptor_hive_store/dio_cache_interceptor_hive_store.dart';
 
@@ -43,23 +39,6 @@ class ApiClient {
         validateStatus: (code) => code != null && code < 500,
       ),
     );
-
-    // The fallback address is the same server reached by raw IP, so its
-    // certificate is issued for the domain name and cannot match the host we
-    // asked for. That one mismatch is expected, and is accepted *only* for the
-    // configured fallback hosts — every other host keeps full validation.
-    final fallbackHosts = _baseUrls
-        .skip(1)
-        .map((url) => Uri.parse(url).host)
-        .where((host) => host.isNotEmpty)
-        .toSet();
-    if (fallbackHosts.isNotEmpty) {
-      _dio.httpClientAdapter = IOHttpClientAdapter(
-        createHttpClient: () => HttpClient()
-          ..badCertificateCallback =
-              (cert, host, port) => fallbackHosts.contains(host),
-      );
-    }
 
     _dio.interceptors.add(
       InterceptorsWrapper(
@@ -109,18 +88,17 @@ class ApiClient {
           handler.next(response);
         },
         onError: (error, handler) {
+          // Never put API response text, tokens, addresses, or request bodies
+          // into device logs. Status and requestId are enough to correlate a
+          // failure with backend logs.
           final body = error.response?.data;
-          final message = body is Map<String, dynamic> ? body['message'] : null;
-          // `unknown` is where dio puts everything it did not classify —
-          // SocketException, HandshakeException, a bad certificate. The type
-          // name alone cannot tell "the name did not resolve" from "TLS was
-          // refused", so the wrapped error goes in the line too.
-          final cause = error.error;
+          final requestId = body is Map<String, dynamic>
+              ? body['requestId']
+              : null;
           dev.log(
-            '${error.requestOptions.method} ${error.requestOptions.path} → '
+            '${error.requestOptions.method} ${error.requestOptions.uri.path} → '
             '${error.type.name} HTTP ${error.response?.statusCode ?? '-'}'
-            '${message == null ? '' : ': $message'}'
-            '${cause == null ? '' : ' [$cause]'}',
+            '${requestId is String ? ' requestId=$requestId' : ''}',
             name: 'ApiClient',
           );
           handler.next(error);
@@ -326,7 +304,6 @@ class ApiClient {
       '${options.path}: all addresses failed — ${failures.join(', ')}',
       name: 'ApiClient',
     );
-    unawaited(_diagnose(Uri.parse(_baseUrls.first).host));
     // Deliberately the *original* error, not the fallback's. The cache
     // interceptor behind this one looks a stored response up by request URI,
     // and the fallback's URI is a different key with nothing under it —
@@ -360,130 +337,6 @@ class ApiClient {
 
 /// Server paths, kept next to the client so a backend rename is a one-file
 /// change.
-/// Debug only. Runs once per launch, after every address has failed, and
-/// answers the questions the Dio error cannot: did the name resolve at all,
-/// to what, over which address family, and does a bare TLS socket to it get
-/// further than the HTTP client did.
-///
-/// It exists because the same `HandshakeException` covers a blocked network,
-/// a middlebox cutting the connection, and a server that is genuinely down —
-/// and on a phone there is no shell to tell them apart with.
-bool _diagnosed = false;
-
-/// Debug only. Asks Cloudflare which address this device appears to be
-/// coming from.
-///
-/// It is the one fact that separates "the server is down" from "the server
-/// does not answer *this* client": a phone routed through a privacy relay or
-/// a VPN reaches the internet from another country's address, and a server
-/// that only serves its own country then drops it while the phone next to it
-/// on the same Wi-Fi is served normally. Nothing is sent but a bare GET.
-Future<void> _logEgress(void Function(String) log) async {
-  final client = HttpClient();
-  try {
-    final request = await client.getUrl(
-      Uri.parse('https://www.cloudflare.com/cdn-cgi/trace'),
-    );
-    final response = await request.close();
-    final body = await response.transform(const Utf8Decoder()).join();
-    final fields = <String, String>{};
-    for (final line in body.split('\n')) {
-      final split = line.indexOf('=');
-      if (split > 0) fields[line.substring(0, split)] = line.substring(split + 1);
-    }
-    log(
-      'EGRESS ip=${fields['ip']} country=${fields['loc']} '
-      'via=${fields['colo']}',
-    );
-  } catch (error) {
-    log('EGRESS unknown — $error');
-  } finally {
-    client.close(force: true);
-  }
-}
-
-Future<void> _diagnose(String host) async {
-  if (_diagnosed) return;
-  _diagnosed = true;
-
-  void log(String message) {
-    // ANSI: black on bright magenta, then magenta text.
-    debugPrint('\x1B[30;105m NET \x1B[0m \x1B[95m$message\x1B[0m');
-  }
-
-  log('diagnosing $host');
-
-  // A control connection to a host that is certainly reachable and certainly
-  // not filtered. It separates "this phone cannot do TLS at all" — a device
-  // VPN, a relay, a content filter — from "this phone cannot reach *this*
-  // server", which is a very different hunt.
-  try {
-    final control = await SecureSocket.connect(
-      'www.cloudflare.com',
-      443,
-      timeout: const Duration(seconds: 10),
-    );
-    log('CONTROL cloudflare.com TLS OK — the phone can do TLS');
-    control.destroy();
-    await _logEgress(log);
-  } catch (error) {
-    log('CONTROL cloudflare.com TLS FAILED — $error');
-    log('the phone cannot complete TLS to anything: look at the device, '
-        'not the server (VPN profile, Private Relay, content filter)');
-  }
-  final addresses = <InternetAddress>[];
-  for (final type in [InternetAddressType.IPv4, InternetAddressType.IPv6]) {
-    try {
-      final found = await InternetAddress.lookup(host, type: type);
-      addresses.addAll(found);
-      log('DNS ${type.name}: ${found.map((a) => a.address).join(', ')}');
-    } catch (error) {
-      log('DNS ${type.name}: FAILED — $error');
-    }
-  }
-  if (addresses.isEmpty) {
-    log('name does not resolve at all — DNS is being blocked or rewritten');
-    return;
-  }
-
-  for (final address in addresses) {
-    // Plain TCP first: it separates "cannot reach the port" from "reaches it
-    // and the TLS handshake is what dies".
-    try {
-      final socket = await Socket.connect(
-        address,
-        443,
-        timeout: const Duration(seconds: 8),
-      );
-      log('TCP  ${address.address}:443 OPEN');
-      socket.destroy();
-    } catch (error) {
-      log('TCP  ${address.address}:443 FAILED — $error');
-      continue;
-    }
-    try {
-      // Connect by name, not by the resolved address: the handshake needs
-      // the hostname for SNI, and a certificate issued for the domain never
-      // matches a bare IP.
-      final secure = await SecureSocket.connect(
-        host,
-        443,
-        timeout: const Duration(seconds: 10),
-      );
-      log(
-        'TLS  ${address.address} OK — ${secure.selectedProtocol ?? "no alpn"} '
-        'cert=${secure.peerCertificate?.subject}',
-      );
-      secure.destroy();
-    } catch (error) {
-      log('TLS  ${address.address} FAILED — $error');
-    }
-    // Only the first address is worth the full treatment: the IPv6 entry is
-    // the same machine behind an IPv4-mapped address.
-    break;
-  }
-}
-
 class ApiPaths {
   const ApiPaths._();
 
@@ -526,6 +379,7 @@ class ApiPaths {
   static String courierLocation(String id) =>
       'tracking/orders/$id/courier-location';
   static String courierRoute(String id) => 'tracking/orders/$id/route';
+
   /// The id here is an FCM registration token, which carries a `:` separating
   /// the instance id from the rest. Encoding it is part of the documented
   /// contract (MOBILE_PUSH_NOTIFICATIONS.md) — an unescaped token is at the

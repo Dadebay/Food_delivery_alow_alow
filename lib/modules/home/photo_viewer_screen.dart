@@ -132,9 +132,10 @@ class _ZoomablePhotoState extends State<_ZoomablePhoto>
         )
         ..scaleByDouble(scale, scale, scale, 1);
     }
-    _zoom = Matrix4Tween(begin: _transform.value, end: end).animate(
-      CurvedAnimation(parent: _animation, curve: Curves.easeOutCubic),
-    );
+    _zoom = Matrix4Tween(
+      begin: _transform.value,
+      end: end,
+    ).animate(CurvedAnimation(parent: _animation, curve: Curves.easeOutCubic));
     _animation
       ..removeListener(_applyZoom)
       ..addListener(_applyZoom)
@@ -206,7 +207,11 @@ class _CloseButton extends StatelessWidget {
       onTap: onTap,
       child: const Padding(
         padding: EdgeInsets.all(9),
-        child: HugeIcon(icon: AppIcons.cancel, color: AppColors.white, size: 18),
+        child: HugeIcon(
+          icon: AppIcons.cancel,
+          color: AppColors.white,
+          size: 18,
+        ),
       ),
     ),
   );

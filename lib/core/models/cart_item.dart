@@ -20,8 +20,7 @@ class CartItem {
 
   double get lineTotal => unitPrice * quantity;
 
-  String get displayName =>
-      variant != null && variant!.name.isNotEmpty
-          ? '${dish.name} · ${variant!.name}'
-          : dish.name;
+  String get displayName => variant != null && variant!.name.isNotEmpty
+      ? '${dish.name} · ${variant!.name}'
+      : dish.name;
 }

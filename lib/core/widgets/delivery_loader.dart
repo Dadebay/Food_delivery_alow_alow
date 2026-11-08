@@ -45,11 +45,7 @@ class DeliveryLoader extends StatelessWidget {
         ),
         if (message != null) ...[
           const SizedBox(height: 12),
-          Text(
-            message!,
-            textAlign: TextAlign.center,
-            style: AppText.bodyMuted,
-          ),
+          Text(message!, textAlign: TextAlign.center, style: AppText.bodyMuted),
         ],
       ],
     );

@@ -61,7 +61,7 @@ class AuthRepository {
   /// that requires an account (Orders, Profile) would show nothing but a
   /// sign-in prompt on first launch, with no way to see the seeded mock data
   /// without first running the phone + code screen. Signing out still works
-  /// normally, and the phone/code flow is still there to demo (code `0000`)
+  /// normally, and the phone/code flow is still there to demo (code `000000`)
   /// once signed out.
   void restore() {
     if (AppConfig.useMockData && token == null) {
@@ -82,9 +82,7 @@ class AuthRepository {
       return;
     }
     if (kDebugMode) {
-      debugPrint(
-        '[OTP] Requesting code for $phone → ${AppConfig.apiBaseUrl}${ApiPaths.requestCode}',
-      );
+      debugPrint('[OTP] Requesting code via ${ApiPaths.requestCode}');
     }
     // Installation metadata is strictly best-effort: a Firebase issue must
     // never prevent a customer from receiving an OTP.
@@ -114,31 +112,7 @@ class AuthRepository {
             : 'OTP isteği başarısız: HTTP ${response.statusCode}',
       );
     }
-    if (kDebugMode && response.data is Map<String, dynamic>) {
-      final devCode = response.data['devCode'];
-      if (devCode is String && devCode.isNotEmpty) {
-        _printDevCode(devCode);
-      } else {
-        debugPrint(
-          '[OTP] Server accepted request (HTTP ${response.statusCode}); waiting for SMS gateway.',
-        );
-      }
-    }
-  }
-
-  /// Boxed and ANSI-coloured so it can't be missed scrolling past normal
-  /// Dio/Flutter log noise in a terminal `flutter run` console.
-  void _printDevCode(String code) {
-    const yellow = '\x1B[1;33m';
-    const green = '\x1B[1;32m';
-    const reset = '\x1B[0m';
-    const width = 28;
-    const prefix = '   OTP CODE:  ';
-    final line = '═' * width;
-    final padding = ' ' * (width - prefix.length - code.length);
-    debugPrint('$green╔$line╗$reset');
-    debugPrint('$green║$reset$prefix$yellow$code$reset$padding$green║$reset');
-    debugPrint('$green╚$line╝$reset');
+    // A development OTP must not be copied into device logs.
   }
 
   String _deviceName() => switch (defaultTargetPlatform) {
@@ -181,7 +155,9 @@ class AuthRepository {
       },
     );
     if (response.statusCode != 200) {
-      if (kDebugMode) _printVerifyError(response.statusCode, response.data);
+      if (kDebugMode) {
+        debugPrint('[OTP] Verify failed: HTTP ${response.statusCode}');
+      }
       final body = response.data;
       final message = body is Map<String, dynamic> ? body['message'] : null;
       throw StateError(
@@ -214,27 +190,24 @@ class AuthRepository {
     return true;
   }
 
-  void _printVerifyError(int? statusCode, dynamic body) {
-    final message = body is Map<String, dynamic> ? body['message'] : body;
-    const red = '\x1B[1;31m';
-    const yellow = '\x1B[1;33m';
-    const reset = '\x1B[0m';
-    debugPrint('$red╔════════ OTP VERIFY FAILED ════════╗$reset');
-    debugPrint('$red║$reset HTTP: $yellow$statusCode$reset');
-    debugPrint('$red║$reset ${message ?? 'Unknown error'}');
-    debugPrint('$red╚══════════════════════════════════╝$reset');
-  }
-
   Future<void> signOut() async {
     final refreshToken = _prefs.getString(_refreshTokenKey);
     try {
       if (!AppConfig.useMockData) {
-        await _pushDevices.unregister();
+        try {
+          await _pushDevices.unregister();
+        } catch (_) {
+          // Push revocation is best effort when the device is offline.
+        }
         if (refreshToken != null) {
-          await _api.post(
-            ApiPaths.logout,
-            data: {'refreshToken': refreshToken},
-          );
+          try {
+            await _api.post(
+              ApiPaths.logout,
+              data: {'refreshToken': refreshToken},
+            );
+          } catch (_) {
+            // Local sign-out must still complete after a network failure.
+          }
         }
       }
     } finally {
@@ -338,9 +311,7 @@ class AuthRepository {
   /// Matches every account-specific GET the app caches for offline viewing
   /// (order history, favorites, saved addresses, profile) — not the public
   /// menu, which stays cached across accounts on a shared device.
-  static final _personalCachePaths = RegExp(
-    r'/(orders|favorites|users/me)',
-  );
+  static final _personalCachePaths = RegExp(r'/(orders|favorites|users/me)');
 
   Future<void> _clearSession() async {
     _debugSession('CLEARING');

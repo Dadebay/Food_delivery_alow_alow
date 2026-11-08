@@ -20,11 +20,8 @@ class FavoriteGlyph extends StatelessWidget {
   static const _empty = 'assets/icons/favorite_empty.svg';
 
   @override
-  Widget build(BuildContext context) => SvgPicture.asset(
-    active ? _full : _empty,
-    width: size,
-    height: size,
-  );
+  Widget build(BuildContext context) =>
+      SvgPicture.asset(active ? _full : _empty, width: size, height: size);
 }
 
 /// The heart used on a dish card and its detail screen.
@@ -57,7 +54,9 @@ class FavoriteToggle extends StatelessWidget {
     return Material(
       color:
           background ??
-          (active ? Colors.transparent : AppColors.white.withValues(alpha: 0.92)),
+          (active
+              ? Colors.transparent
+              : AppColors.white.withValues(alpha: 0.92)),
       shape: const CircleBorder(),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

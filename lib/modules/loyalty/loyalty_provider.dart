@@ -79,8 +79,10 @@ class LoyaltyProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _account = await _repository.me();
-      _log('balance = ${_account?.pointsBalance} '
-          '(${_account?.entries.length ?? 0} entries)');
+      _log(
+        'balance = ${_account?.pointsBalance} '
+        '(${_account?.entries.length ?? 0} entries)',
+      );
     } on FeatureUnavailableException {
       _markUnavailable();
     } catch (error) {
@@ -100,10 +102,7 @@ class LoyaltyProvider extends ChangeNotifier {
   /// move the balance, and the gift catalogue's stock along with it.
   Future<void> refresh({required bool signedIn}) async {
     if (_unavailable) return;
-    await Future.wait([
-      loadGifts(),
-      if (signedIn) loadAccount(),
-    ]);
+    await Future.wait([loadGifts(), if (signedIn) loadAccount()]);
   }
 
   /// Forgets the balance on sign-out. The gift catalogue is public and
@@ -126,6 +125,9 @@ class LoyaltyProvider extends ChangeNotifier {
     _unavailable = true;
     _gifts = const [];
     _account = null;
-    _log('this server has no loyalty endpoints — hiding the feature', bad: true);
+    _log(
+      'this server has no loyalty endpoints — hiding the feature',
+      bad: true,
+    );
   }
 }

@@ -33,7 +33,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void _reorder(CustomerOrder order) {
     final cart = context.read<CartProvider>();
     for (final item in order.items) {
-      cart.add(item.dish, variant: item.variant, quantity: item.quantity, note: item.note);
+      cart.add(
+        item.dish,
+        variant: item.variant,
+        quantity: item.quantity,
+        note: item.note,
+      );
     }
     context.read<TabSwitcher>().go(2);
   }
@@ -54,8 +59,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
         // read as raised cards instead of blending into an identical
         // background.
         backgroundColor: Colors.transparent,
-        appBar: AppBar(title: Text(s.ordersTitle), centerTitle: false, automaticallyImplyLeading: false),
-        body: _SignInPrompt(title: s.ordersEmpty, hint: s.signInPromptOrders, label: s.signIn),
+        appBar: AppBar(
+          title: Text(s.ordersTitle),
+          centerTitle: false,
+          automaticallyImplyLeading: false,
+        ),
+        body: _SignInPrompt(
+          title: s.ordersEmpty,
+          hint: s.signInPromptOrders,
+          label: s.signIn,
+        ),
       );
     }
 
@@ -66,7 +79,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: Text(s.ordersTitle), centerTitle: false, automaticallyImplyLeading: false),
+      appBar: AppBar(
+        title: Text(s.ordersTitle),
+        centerTitle: false,
+        automaticallyImplyLeading: false,
+      ),
       body: orders.loading
           ? Center(child: DeliveryLoader(size: 200, message: s.loadingHint))
           : orders.orders.isEmpty
@@ -78,12 +95,22 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(20),
-                      child: Image.asset('assets/images/empty_order.png', width: 250, height: 250, fit: BoxFit.cover, semanticLabel: s.ordersEmpty),
+                      child: Image.asset(
+                        'assets/images/empty_order.png',
+                        width: 250,
+                        height: 250,
+                        fit: BoxFit.cover,
+                        semanticLabel: s.ordersEmpty,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(s.ordersEmpty, style: AppText.h2),
                     const SizedBox(height: 8),
-                    Text(s.ordersEmptyHint, textAlign: TextAlign.center, style: AppText.bodyMuted),
+                    Text(
+                      s.ordersEmptyHint,
+                      textAlign: TextAlign.center,
+                      style: AppText.bodyMuted,
+                    ),
                   ],
                 ),
               ),
@@ -92,7 +119,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
               color: AppColors.brand,
               onRefresh: orders.load,
               child: ListView.separated(
-                padding: Responsive.pageInsets(context, const EdgeInsets.all(10)),
+                padding: Responsive.pageInsets(
+                  context,
+                  const EdgeInsets.all(10),
+                ),
                 physics: const AlwaysScrollableScrollPhysics(),
                 itemCount: orders.orders.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -101,7 +131,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   return OrderHistoryCard(
                     order: order,
                     strings: s,
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: order.id))),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => OrderDetailScreen(orderId: order.id),
+                      ),
+                    ),
                     onReorder: () => _reorder(order),
                   );
                 },
@@ -112,7 +146,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
 }
 
 class _SignInPrompt extends StatelessWidget {
-  const _SignInPrompt({required this.title, required this.hint, required this.label});
+  const _SignInPrompt({
+    required this.title,
+    required this.hint,
+    required this.label,
+  });
 
   final String title;
   final String hint;
@@ -128,7 +166,13 @@ class _SignInPrompt extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: Image.asset('assets/images/empty_order.png', width: 250, height: 250, fit: BoxFit.cover, semanticLabel: title),
+              child: Image.asset(
+                'assets/images/empty_order.png',
+                width: 250,
+                height: 250,
+                fit: BoxFit.cover,
+                semanticLabel: title,
+              ),
             ),
             const SizedBox(height: 16),
             Text(title, style: AppText.h2),
@@ -139,7 +183,9 @@ class _SignInPrompt extends StatelessWidget {
               width: 180,
               child: AppButton(
                 label: label,
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
               ),
             ),
           ],

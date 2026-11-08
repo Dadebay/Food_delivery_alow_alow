@@ -10,19 +10,10 @@ class AppConfig {
   /// `--dart-define=API_BASE_URL=http://192.168.1.20:4000/api/v1/`.
   static const String _defaultApiBaseUrl = 'https://a7-tagam.com.tm/api/v1/';
 
-  /// Same server reached by raw IP, used only when the address above cannot
-  /// be reached at all — `ApiClient` retries such a request here and then
-  /// keeps using it for the rest of the session.
-  ///
-  /// HTTPS, like the address above: every request the app makes, including
-  /// the OTP login and the order it places, goes over TLS on this path too.
-  ///
-  /// The certificate is issued for the domain name and cannot match a bare
-  /// IP — `ApiClient` accepts that one mismatch, for this host alone.
-  ///
-  /// Leave empty to disable the fallback; override with
-  /// `--dart-define=API_FALLBACK_URL=https://1.2.3.4/api/v1/`.
-  static const String _defaultApiFallbackUrl = 'https://216.250.12.132/api/v1/';
+  /// Optional alternate hostname with a valid TLS certificate. An IP whose
+  /// certificate belongs to another host must not carry login or order data.
+  /// Configure with `--dart-define=API_FALLBACK_URL=https://backup.example/api/v1/`.
+  static const String _defaultApiFallbackUrl = '';
 
   static String get apiBaseUrl => apiBaseUrls.first;
 
@@ -39,7 +30,11 @@ class AppConfig {
     }
 
     add(configured.isNotEmpty ? configured : _defaultApiBaseUrl);
-    add(configuredFallback.isNotEmpty ? configuredFallback : _defaultApiFallbackUrl);
+    add(
+      configuredFallback.isNotEmpty
+          ? configuredFallback
+          : _defaultApiFallbackUrl,
+    );
     return urls;
   }
 
@@ -59,7 +54,8 @@ class AppConfig {
 
   // ─── Map ─────────────────────────────────────────────────────
   /// Same tile server as the courier app.
-  static const String mapTileUrl = 'https://a7-tagam.com.tm/tile/{z}/{x}/{y}.png';
+  static const String mapTileUrl =
+      'https://a7-tagam.com.tm/tile/{z}/{x}/{y}.png';
   static const String mapUserAgent = 'com.gurbanov.alowalow';
 
   /// Ashgabat — map opens here before the customer places a pin.
@@ -103,7 +99,8 @@ class AppConfig {
   static const double deliveryFee = 15;
   static const double freeDeliveryThreshold = 150;
 
-  static double deliveryFeeFor(double subtotal) => subtotal >= freeDeliveryThreshold ? 0 : deliveryFee;
+  static double deliveryFeeFor(double subtotal) =>
+      subtotal >= freeDeliveryThreshold ? 0 : deliveryFee;
   static const String supportPhone = '+99312000000';
 
   /// Used to build the Play Store link when the backend has not sent one.
