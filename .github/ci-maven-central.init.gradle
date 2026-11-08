@@ -4,13 +4,15 @@ import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 // to GitHub, where hosted runners currently receive HTTP 504. Google's Maven
 // Central mirror serves the same artifact; its 2.2.20 JAR was checked against
 // Maven Central's published SHA-1. This covers Flutter and pub plugin builds.
-def useAlternateCentral = { repositories ->
-    repositories.whenObjectAdded { repository ->
-        if (repository instanceof MavenArtifactRepository &&
-                repository.url.host == 'repo.maven.apache.org') {
-            repository.url = URI.create('https://maven-central.storage-download.googleapis.com/maven2/')
-        }
+def routeCentral = { repository ->
+    if (repository instanceof MavenArtifactRepository &&
+            repository.url.host == 'repo.maven.apache.org') {
+        repository.url = URI.create('https://maven-central.storage-download.googleapis.com/maven2/')
     }
+}
+
+def useAlternateCentral = { repositories ->
+    repositories.whenObjectAdded(routeCentral)
 }
 
 gradle.beforeSettings { settings ->
@@ -21,4 +23,11 @@ gradle.beforeSettings { settings ->
 gradle.beforeProject { project ->
     useAlternateCentral(project.buildscript.repositories)
     useAlternateCentral(project.repositories)
+}
+
+// Root and plugin scripts may add repositories before a subproject's
+// beforeProject hook, so check the finished list before any task resolves it.
+gradle.afterProject { project ->
+    project.buildscript.repositories.each(routeCentral)
+    project.repositories.each(routeCentral)
 }
