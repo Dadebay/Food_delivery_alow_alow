@@ -1,14 +1,14 @@
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 
-// CI only: Maven Central's usual hostname redirects the Kotlin compiler JAR
-// to GitHub, where hosted runners currently receive HTTP 504. Rewrite that
-// repository in every build, including Flutter's composite Gradle build and
-// pub plugins, without changing project or dependency versions.
+// CI only: Maven Central's usual hostnames redirect the Kotlin compiler JAR
+// to GitHub, where hosted runners currently receive HTTP 504. Google's Maven
+// Central mirror serves the same artifact; its 2.2.20 JAR was checked against
+// Maven Central's published SHA-1. This covers Flutter and pub plugin builds.
 def useAlternateCentral = { repositories ->
     repositories.whenObjectAdded { repository ->
         if (repository instanceof MavenArtifactRepository &&
                 repository.url.host == 'repo.maven.apache.org') {
-            repository.url = URI.create('https://repo1.maven.org/maven2/')
+            repository.url = URI.create('https://maven-central.storage-download.googleapis.com/maven2/')
         }
     }
 }

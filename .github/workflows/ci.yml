@@ -44,7 +44,7 @@ jobs:
       - name: Use checksum-verified Gradle mirror on CI
         run: sed -i 's#services.gradle.org/distributions#mirror.spaceport.work/gradle#' android/gradle/wrapper/gradle-wrapper.properties
       # Applies to the app, Flutter's included Gradle build, and pub plugins.
-      - name: Use Maven Central alternate hostname on CI
+      - name: Use verified Maven Central mirror on CI
         run: |
           mkdir -p "$HOME/.gradle/init.d"
           cp .github/ci-maven-central.init.gradle "$HOME/.gradle/init.d/ci-maven-central.gradle"
