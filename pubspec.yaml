@@ -45,7 +45,6 @@ dependencies:
   path: ^1.9.0
 
   # ─── Icons & UI ──────────────────────────────────────────────
-  cupertino_icons: ^1.0.8
   hugeicons: ^1.1.7
   flutter_svg: ^2.0.12
   video_player: ^2.9.2
@@ -54,7 +53,6 @@ dependencies:
   # ─── Utilities ───────────────────────────────────────────────
   intl: ^0.20.2
   url_launcher: ^6.3.1
-  permission_handler: ^11.3.1
   carousel_slider: ^5.1.2
   flutter_animate: ^4.5.2
 
