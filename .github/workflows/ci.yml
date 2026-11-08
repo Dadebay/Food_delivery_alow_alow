@@ -38,6 +38,11 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      # The official Gradle URL currently redirects to a GitHub asset that
+      # returns 504 on hosted runners. The wrapper still enforces Gradle's
+      # published SHA-256, so a mirror cannot substitute different bytes.
+      - name: Use checksum-verified Gradle mirror on CI
+        run: sed -i 's#services.gradle.org/distributions#mirror.spaceport.work/gradle#' android/gradle/wrapper/gradle-wrapper.properties
       - run: flutter build apk --debug --no-pub
 
   build-ios:
