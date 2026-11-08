@@ -6,9 +6,10 @@ Flutter customer app for ordering food in Ashgabat. Customers browse the menu, c
 
 - [Google Play](https://play.google.com/store/apps/details?id=com.gurbanov.alowalow)
 - [App Store](https://apps.apple.com/us/app/a7-tagam/id6803538512)
-- [GitHub Release v2.0.0](https://github.com/Dadebay/Food_delivery_alow_alow/releases/tag/v2.0.0) contains source release notes. An AAB is a store upload, not a direct install file; no APK is offered here until a signed APK is verified.
+- [GitHub Release v2.0.1](https://github.com/Dadebay/Food_delivery_alow_alow/releases/tag/v2.0.1) — Android build 21 and release notes.
+- [Download the signed Android APK](https://github.com/Dadebay/Food_delivery_alow_alow/releases/download/v2.0.1/A7-TAGAM-v2.0.1-build21-android.apk) · [SHA-256 checksum](https://github.com/Dadebay/Food_delivery_alow_alow/releases/download/v2.0.1/A7-TAGAM-v2.0.1-build21-android.apk.sha256)
 
-The published store version is 2.0.0. Changes in `main` may not be in the store until a new store build is approved.
+The published store version is 2.0.0. The GitHub APK is version 2.0.1+21 and has not been submitted to either store. Its compatibility with updates from a Play-installed copy has not been verified against Google's app-signing certificate, and a real-device install test was not performed. Prefer the store listing if the app is already installed from a store.
 
 ## Run and test
 
