@@ -317,24 +317,19 @@ class CartProvider extends ChangeNotifier {
   }
 }
 
-
 /// Why a gift cannot be added, or that it can.
 ///
 /// A reason rather than a bool, so the gift shop can say *why* next to a
 /// disabled button — a greyed-out control with no explanation leaves the
 /// customer tapping it to find out.
 class GiftBlock {
-  const GiftBlock.none()
-      : reason = GiftBlockReason.none,
-        shortfall = 0;
-  const GiftBlock.noFood()
-      : reason = GiftBlockReason.noFood,
-        shortfall = 0;
+  const GiftBlock.none() : reason = GiftBlockReason.none, shortfall = 0;
+  const GiftBlock.noFood() : reason = GiftBlockReason.noFood, shortfall = 0;
   const GiftBlock.limitReached()
-      : reason = GiftBlockReason.limitReached,
-        shortfall = 0;
+    : reason = GiftBlockReason.limitReached,
+      shortfall = 0;
   const GiftBlock.notEnoughPoints(this.shortfall)
-      : reason = GiftBlockReason.notEnoughPoints;
+    : reason = GiftBlockReason.notEnoughPoints;
 
   final GiftBlockReason reason;
 

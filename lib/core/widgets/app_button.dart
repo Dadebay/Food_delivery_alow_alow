@@ -105,7 +105,9 @@ class AppButton extends StatelessWidget {
                                 label,
                                 maxLines: 1,
                                 softWrap: false,
-                                style: AppText.button.copyWith(color: textColor),
+                                style: AppText.button.copyWith(
+                                  color: textColor,
+                                ),
                               ),
                             ),
                           ),

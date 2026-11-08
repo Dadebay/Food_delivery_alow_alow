@@ -33,7 +33,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _next() {
     if (_page < _pageCount - 1) {
-      _controller.nextPage(duration: const Duration(milliseconds: 280), curve: Curves.easeOut);
+      _controller.nextPage(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOut,
+      );
     } else {
       _finish();
     }
@@ -58,9 +61,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 controller: _controller,
                 onPageChanged: (index) => setState(() => _page = index),
                 children: [
-                  OnboardingImagePage(imageAsset: 'assets/onboard1.png', title: s.onboardingTitle1, subtitle: s.onboardingSubtitle1),
-                  OnboardingImagePage(imageAsset: 'assets/onboard2.png', title: s.onboardingTitle2, subtitle: s.onboardingSubtitle2),
-                  OnboardingImagePage(imageAsset: 'assets/onboard3.png', title: s.onboardingCourierTitle, subtitle: s.onboardingCourierSubtitle),
+                  OnboardingImagePage(
+                    imageAsset: 'assets/onboard1.png',
+                    title: s.onboardingTitle1,
+                    subtitle: s.onboardingSubtitle1,
+                  ),
+                  OnboardingImagePage(
+                    imageAsset: 'assets/onboard2.png',
+                    title: s.onboardingTitle2,
+                    subtitle: s.onboardingSubtitle2,
+                  ),
+                  OnboardingImagePage(
+                    imageAsset: 'assets/onboard3.png',
+                    title: s.onboardingCourierTitle,
+                    subtitle: s.onboardingCourierSubtitle,
+                  ),
                 ],
               ),
             ),
@@ -78,10 +93,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [for (var i = 0; i < _pageCount; i++) _Dot(active: i == _page)],
+                    children: [
+                      for (var i = 0; i < _pageCount; i++)
+                        _Dot(active: i == _page),
+                    ],
                   ),
                   const SizedBox(height: 20),
-                  AppButton(label: onLastPage ? s.onboardingStart : s.onboardingNext, onPressed: _next),
+                  AppButton(
+                    label: onLastPage ? s.onboardingStart : s.onboardingNext,
+                    onPressed: _next,
+                  ),
                 ],
               ),
             ),
@@ -104,7 +125,10 @@ class _Dot extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 4),
       width: active ? 22 : 8,
       height: 8,
-      decoration: BoxDecoration(color: active ? AppColors.orange : AppColors.divider, borderRadius: BorderRadius.circular(4)),
+      decoration: BoxDecoration(
+        color: active ? AppColors.orange : AppColors.divider,
+        borderRadius: BorderRadius.circular(4),
+      ),
     );
   }
 }

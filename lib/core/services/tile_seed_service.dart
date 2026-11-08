@@ -222,25 +222,27 @@ class TileSeedService {
   /// Fetches every tile through a cache-writing Dio, and reports how many
   /// could not be had.
   static Future<int> _download(List<MapTile> tiles) async {
-    final dio = Dio(
-      BaseOptions(
-        responseType: ResponseType.bytes,
-        headers: const {'User-Agent': AppConfig.mapUserAgent},
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 20),
-        // A missing tile is an answer, not an exception to unwind through.
-        validateStatus: (code) => code != null && code < 500,
-      ),
-    )..interceptors.add(
-      DioCacheInterceptor(
-        options: CacheOptions(
-          store: TileCacheService.store,
-          policy: CachePolicy.forceCache,
-          maxStale: AppConfig.tileCacheMaxStale,
-          hitCacheOnErrorExcept: const [],
-        ),
-      ),
-    );
+    final dio =
+        Dio(
+            BaseOptions(
+              responseType: ResponseType.bytes,
+              headers: const {'User-Agent': AppConfig.mapUserAgent},
+              connectTimeout: const Duration(seconds: 15),
+              receiveTimeout: const Duration(seconds: 20),
+              // A missing tile is an answer, not an exception to unwind through.
+              validateStatus: (code) => code != null && code < 500,
+            ),
+          )
+          ..interceptors.add(
+            DioCacheInterceptor(
+              options: CacheOptions(
+                store: TileCacheService.store,
+                policy: CachePolicy.forceCache,
+                maxStale: AppConfig.tileCacheMaxStale,
+                hitCacheOnErrorExcept: const [],
+              ),
+            ),
+          );
 
     var failed = 0;
     var done = 0;
@@ -268,9 +270,7 @@ class TileSeedService {
       }
     }
 
-    await Future.wait([
-      for (var i = 0; i < _concurrency; i++) worker(),
-    ]);
+    await Future.wait([for (var i = 0; i < _concurrency; i++) worker()]);
     dio.close(force: true);
     return failed;
   }

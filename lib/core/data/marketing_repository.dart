@@ -37,7 +37,9 @@ class MarketingRepository {
     if (imageUrl is! String || imageUrl.isEmpty) return json;
     return {
       ...json,
-      'imageUrl': Uri.parse(ApiClient.currentBaseUrl).resolve(imageUrl).toString(),
+      'imageUrl': Uri.parse(
+        ApiClient.currentBaseUrl,
+      ).resolve(imageUrl).toString(),
     };
   }
 }

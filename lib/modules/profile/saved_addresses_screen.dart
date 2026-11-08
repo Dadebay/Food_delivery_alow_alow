@@ -284,7 +284,10 @@ class _ActiveBadge extends StatelessWidget {
           const SizedBox(width: 3),
           Text(
             label,
-            style: AppText.chip.copyWith(color: AppColors.onBrand, fontSize: 10),
+            style: AppText.chip.copyWith(
+              color: AppColors.onBrand,
+              fontSize: 10,
+            ),
           ),
         ],
       ),

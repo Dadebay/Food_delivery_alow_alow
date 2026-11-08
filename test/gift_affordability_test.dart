@@ -90,8 +90,10 @@ void main() {
   group('the other refusals still come first', () {
     test('no food in the cart beats any balance', () {
       final cart = CartProvider();
-      expect(cart.giftBlock(cola, balance: 10000).reason,
-          GiftBlockReason.noFood);
+      expect(
+        cart.giftBlock(cola, balance: 10000).reason,
+        GiftBlockReason.noFood,
+      );
       expect(cart.addGift(cola, balance: 10000), isFalse);
     });
 
@@ -100,8 +102,10 @@ void main() {
       for (var i = 0; i < CartProvider.maxGiftQuantity; i++) {
         expect(cart.addGift(cola, balance: 100000), isTrue);
       }
-      expect(cart.giftBlock(cola, balance: 100000).reason,
-          GiftBlockReason.limitReached);
+      expect(
+        cart.giftBlock(cola, balance: 100000).reason,
+        GiftBlockReason.limitReached,
+      );
     });
 
     test('ten distinct gifts is the ceiling for a new one', () {
@@ -115,8 +119,10 @@ void main() {
         );
         expect(cart.addGift(gift, balance: 100000), isTrue);
       }
-      expect(cart.giftBlock(cola, balance: 100000).reason,
-          GiftBlockReason.limitReached);
+      expect(
+        cart.giftBlock(cola, balance: 100000).reason,
+        GiftBlockReason.limitReached,
+      );
     });
   });
 }

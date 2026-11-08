@@ -85,7 +85,9 @@ class _DishGridState extends State<DishGrid> {
     if (widget.dishes.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 40),
-        child: Center(child: Text(widget.strings.noResults, style: AppText.bodyMuted)),
+        child: Center(
+          child: Text(widget.strings.noResults, style: AppText.bodyMuted),
+        ),
       );
     }
 
@@ -98,7 +100,9 @@ class _DishGridState extends State<DishGrid> {
     // through the feed. A plain Row/Column pair needs none of that
     // machinery, so this path skips GridView entirely.
     if (widget.maxItems != null) {
-      final visible = widget.dishes.length <= widget.maxItems! ? widget.dishes : widget.dishes.sublist(0, widget.maxItems!);
+      final visible = widget.dishes.length <= widget.maxItems!
+          ? widget.dishes
+          : widget.dishes.sublist(0, widget.maxItems!);
       // The shelf was hard-wired to two cards a row, so a tablet got the same
       // pair blown up to half the screen each while the grid pages beside it
       // had already moved to three.
@@ -155,16 +159,17 @@ class _DishGridState extends State<DishGrid> {
         crossAxisSpacing: 14,
         childAspectRatio: DishGrid.aspectRatio,
       ),
-      itemBuilder: (context, index) => _buildCard(context, widget.dishes[index], index),
+      itemBuilder: (context, index) =>
+          _buildCard(context, widget.dishes[index], index),
     );
   }
 
   Widget _buildCard(BuildContext context, Dish dish, int index) {
     final card = DishCard(
       dish: dish,
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => DishDetailScreen(dish: dish)),
-      ),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => DishDetailScreen(dish: dish))),
       onToggleFavorite: () => widget.onToggleFavorite(dish),
     );
     if (!widget.animate || !_withinEntrance) return card;
@@ -174,10 +179,25 @@ class _DishGridState extends State<DishGrid> {
     return card
         .animate(
           key: ValueKey(dish.id),
-          delay: (45 * (index < DishGrid._staggerLimit ? index : DishGrid._staggerLimit)).ms,
+          delay:
+              (45 *
+                      (index < DishGrid._staggerLimit
+                          ? index
+                          : DishGrid._staggerLimit))
+                  .ms,
         )
         .fadeIn(duration: 380.ms, curve: Curves.easeOut)
-        .slideY(begin: 0.18, end: 0, duration: 420.ms, curve: Curves.easeOutCubic)
-        .scaleXY(begin: 0.94, end: 1, duration: 420.ms, curve: Curves.easeOutCubic);
+        .slideY(
+          begin: 0.18,
+          end: 0,
+          duration: 420.ms,
+          curve: Curves.easeOutCubic,
+        )
+        .scaleXY(
+          begin: 0.94,
+          end: 1,
+          duration: 420.ms,
+          curve: Curves.easeOutCubic,
+        );
   }
 }

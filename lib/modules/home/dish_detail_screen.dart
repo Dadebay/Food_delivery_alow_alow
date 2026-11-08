@@ -66,7 +66,9 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
   /// see [DishPhotoGallery]. The base is a multiple of the gallery, so the
   /// starting page is the first photo.
   static const _galleryLoops = 1000;
-  late final PageController _photoController = PageController(initialPage: widget.dish.gallery.length * _galleryLoops);
+  late final PageController _photoController = PageController(
+    initialPage: widget.dish.gallery.length * _galleryLoops,
+  );
   int _photoIndex = 0;
 
   /// The size/weight currently picked for a VARIANT dish. It deliberately
@@ -99,7 +101,9 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
     if (_photoController.hasClients) {
       // A variant with no photos of its own keeps showing the dish's, so the
       // base has to come from whichever gallery is actually on screen.
-      final photos = variant.gallery.isNotEmpty ? variant.gallery : widget.dish.gallery;
+      final photos = variant.gallery.isNotEmpty
+          ? variant.gallery
+          : widget.dish.gallery;
       _photoController.jumpToPage(photos.length * _galleryLoops);
     }
   }
@@ -132,7 +136,10 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                 leadingWidth: 56,
                 leading: Padding(
                   padding: const EdgeInsets.only(left: 16),
-                  child: _RoundIconButton(icon: AppIcons.back, onTap: () => Navigator.of(context).pop()),
+                  child: _RoundIconButton(
+                    icon: AppIcons.back,
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
                 ),
                 actions: [
                   Padding(
@@ -140,7 +147,13 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                     // Same 36px disc as the back button opposite it. The
                     // glyph is the larger number because it carries its own
                     // white halo inside the drawing.
-                    child: FavoriteToggle(active: dish.isFavorite, onTap: () => catalog.toggleFavorite(dish), size: 24, padding: 6, background: AppColors.white.withValues(alpha: 0.92)),
+                    child: FavoriteToggle(
+                      active: dish.isFavorite,
+                      onTap: () => catalog.toggleFavorite(dish),
+                      size: 24,
+                      padding: 6,
+                      background: AppColors.white.withValues(alpha: 0.92),
+                    ),
                   ),
                 ],
                 // Sits invisible in the collapsed toolbar row while the
@@ -152,11 +165,20 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                   animation: _scrollController,
                   builder: (context, child) {
                     final collapseDistance = photoHeight - kToolbarHeight;
-                    final offset = _scrollController.hasClients ? _scrollController.offset : 0.0;
-                    final progress = collapseDistance <= 0 ? 1.0 : (offset / collapseDistance).clamp(0.0, 1.0);
+                    final offset = _scrollController.hasClients
+                        ? _scrollController.offset
+                        : 0.0;
+                    final progress = collapseDistance <= 0
+                        ? 1.0
+                        : (offset / collapseDistance).clamp(0.0, 1.0);
                     return Opacity(opacity: progress, child: child);
                   },
-                  child: Text(dish.name, style: AppText.h2.copyWith(fontSize: 17), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    dish.name,
+                    style: AppText.h2.copyWith(fontSize: 17),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
@@ -167,14 +189,17 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                         photos: photos,
                         controller: _photoController,
                         index: _photoIndex,
-                        onPageChanged: (index) => setState(() => _photoIndex = index),
+                        onPageChanged: (index) =>
+                            setState(() => _photoIndex = index),
                         dotsBottomInset: _sheetOverlap + 14,
                       ),
                       if (dish.hasDiscount)
                         Positioned(
                           left: 16,
                           bottom: _sheetOverlap + 14,
-                          child: IgnorePointer(child: _Badge(text: '-${dish.discountPercent}%')),
+                          child: IgnorePointer(
+                            child: _Badge(text: '-${dish.discountPercent}%'),
+                          ),
                         ),
                     ],
                   ),
@@ -187,7 +212,9 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                     width: double.infinity,
                     decoration: const BoxDecoration(
                       color: AppColors.white,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(28),
+                      ),
                     ),
                     // Extra top padding, beyond just the sheet's own
                     // overlap into the photo — otherwise the name sits
@@ -196,28 +223,53 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(dish.name, style: AppText.h2.copyWith(fontSize: 25)),
-                        if (_meta(dish, s).isNotEmpty) ...[const SizedBox(height: 6), Text(_meta(dish, s), style: AppText.bodyMuted)],
+                        Text(
+                          dish.name,
+                          style: AppText.h2.copyWith(fontSize: 25),
+                        ),
+                        if (_meta(dish, s).isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(_meta(dish, s), style: AppText.bodyMuted),
+                        ],
                         const SizedBox(height: 12),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
                             Text(
-                              _selectedVariant == null && dish.hasVariants ? s.fromPrice(Fmt.money(dish.minimumPrice)) : Fmt.money(_selectedVariant?.price ?? dish.discountedPrice),
+                              _selectedVariant == null && dish.hasVariants
+                                  ? s.fromPrice(Fmt.money(dish.minimumPrice))
+                                  : Fmt.money(
+                                      _selectedVariant?.price ??
+                                          dish.discountedPrice,
+                                    ),
                               style: AppText.figure.copyWith(fontSize: 22),
                             ),
-                            if (_selectedVariant == null && dish.hasDiscount) ...[
+                            if (_selectedVariant == null &&
+                                dish.hasDiscount) ...[
                               const SizedBox(width: 8),
-                              Text(Fmt.money(dish.price), style: AppText.bodyMuted.copyWith(decoration: TextDecoration.lineThrough)),
+                              Text(
+                                Fmt.money(dish.price),
+                                style: AppText.bodyMuted.copyWith(
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
                             ],
                           ],
                         ),
                         if (dish.hasVariants && dish.variants.isNotEmpty) ...[
                           const SizedBox(height: 16),
-                          _VariantPicker(label: dish.variantLabel, variants: dish.variants, selected: _selectedVariant, onSelected: _selectVariant),
+                          _VariantPicker(
+                            label: dish.variantLabel,
+                            variants: dish.variants,
+                            selected: _selectedVariant,
+                            onSelected: _selectVariant,
+                          ),
                         ],
-                        if (dish.description.isNotEmpty) ...[const SizedBox(height: 14), Text(dish.description, style: AppText.bodyMuted)],
+                        if (dish.description.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          Text(dish.description, style: AppText.bodyMuted),
+                        ],
                       ],
                     ),
                   ),
@@ -225,7 +277,11 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 4)),
               SliverToBoxAdapter(
-                child: _RelatedDishes(dish: dish, catalog: catalog, title: s.moreFromCategory),
+                child: _RelatedDishes(
+                  dish: dish,
+                  catalog: catalog,
+                  title: s.moreFromCategory,
+                ),
               ),
               // Clears the floating "add to cart" bar, which has no
               // background of its own to reserve this space by itself.
@@ -237,7 +293,12 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
             left: 0,
             right: 0,
             bottom: 0,
-            child: _AddToCartBar(dish: dish, variant: _selectedVariant, quantity: _quantity, note: _note),
+            child: _AddToCartBar(
+              dish: dish,
+              variant: _selectedVariant,
+              quantity: _quantity,
+              note: _note,
+            ),
           ),
         ],
       ),
@@ -261,7 +322,12 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
 }
 
 class _AddToCartBar extends StatelessWidget {
-  const _AddToCartBar({required this.dish, required this.variant, required this.quantity, required this.note});
+  const _AddToCartBar({
+    required this.dish,
+    required this.variant,
+    required this.quantity,
+    required this.note,
+  });
 
   final Dish dish;
   final DishVariant? variant;
@@ -278,16 +344,26 @@ class _AddToCartBar extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
         child: AppButton(
-          label: needsVariant ? s.selectVariantFirst : '${s.addToCart} · ${Fmt.money(unitPrice * quantity)}',
+          label: needsVariant
+              ? s.selectVariantFirst
+              : '${s.addToCart} · ${Fmt.money(unitPrice * quantity)}',
           onPressed: needsVariant
               ? null
               : () {
-                  context.read<CartProvider>().add(dish, variant: variant, quantity: quantity, note: note.text.trim().isEmpty ? null : note.text.trim());
+                  context.read<CartProvider>().add(
+                    dish,
+                    variant: variant,
+                    quantity: quantity,
+                    note: note.text.trim().isEmpty ? null : note.text.trim(),
+                  );
                   AnalyticsService.instance.addedToCart(dish, quantity);
                   // Started before popping — the overlay it flies in is
                   // attached to the root navigator, so the animation keeps
                   // playing over whatever screen this pop reveals.
-                  CartFlyAnimation.runFrom(fromContext: context, imageUrl: variant?.imageUrl ?? dish.imageUrl);
+                  CartFlyAnimation.runFrom(
+                    fromContext: context,
+                    imageUrl: variant?.imageUrl ?? dish.imageUrl,
+                  );
                   Navigator.of(context).pop();
                 },
         ),
@@ -301,7 +377,12 @@ class _AddToCartBar extends StatelessWidget {
 /// added, since the fixed on-page quantity of 1 means this row is the whole
 /// "configure before adding" step for a dish with variants.
 class _VariantPicker extends StatelessWidget {
-  const _VariantPicker({required this.label, required this.variants, required this.selected, required this.onSelected});
+  const _VariantPicker({
+    required this.label,
+    required this.variants,
+    required this.selected,
+    required this.onSelected,
+  });
 
   final String? label;
   final List<DishVariant> variants;
@@ -313,7 +394,13 @@ class _VariantPicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (label != null && label!.isNotEmpty) ...[Text(label!, style: AppText.bodyMuted.copyWith(fontWeight: FontWeight.w600)), const SizedBox(height: 8)],
+        if (label != null && label!.isNotEmpty) ...[
+          Text(
+            label!,
+            style: AppText.bodyMuted.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+        ],
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -324,7 +411,10 @@ class _VariantPicker extends StatelessWidget {
               selected: active,
               onSelected: (_) => onSelected(variant),
               showCheckmark: false,
-              labelStyle: AppText.chip.copyWith(fontWeight: FontWeight.w700, color: active ? AppColors.white : AppColors.textPrimary),
+              labelStyle: AppText.chip.copyWith(
+                fontWeight: FontWeight.w700,
+                color: active ? AppColors.white : AppColors.textPrimary,
+              ),
               backgroundColor: AppColors.cream,
               selectedColor: AppColors.orange,
               side: BorderSide.none,
@@ -338,7 +428,11 @@ class _VariantPicker extends StatelessWidget {
 }
 
 class _RelatedDishes extends StatelessWidget {
-  const _RelatedDishes({required this.dish, required this.catalog, required this.title});
+  const _RelatedDishes({
+    required this.dish,
+    required this.catalog,
+    required this.title,
+  });
 
   final Dish dish;
   final CatalogProvider catalog;
@@ -346,7 +440,10 @@ class _RelatedDishes extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final related = catalog.forCategory(dish.categoryId).where((d) => d.id != dish.id).toList();
+    final related = catalog
+        .forCategory(dish.categoryId)
+        .where((d) => d.id != dish.id)
+        .toList();
     if (related.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -362,7 +459,11 @@ class _RelatedDishes extends StatelessWidget {
         // inset.
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: DishGrid(dishes: related, strings: context.s, onToggleFavorite: catalog.toggleFavorite),
+          child: DishGrid(
+            dishes: related,
+            strings: context.s,
+            onToggleFavorite: catalog.toggleFavorite,
+          ),
         ),
         SizedBox(height: 40),
       ],
@@ -405,9 +506,18 @@ class _Badge extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.orange,
         borderRadius: BorderRadius.circular(9),
-        boxShadow: [BoxShadow(color: AppColors.orange.withValues(alpha: 0.45), blurRadius: 10, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.orange.withValues(alpha: 0.45),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      child: Text(text, style: AppText.chip.copyWith(color: AppColors.white, fontSize: 12)),
+      child: Text(
+        text,
+        style: AppText.chip.copyWith(color: AppColors.white, fontSize: 12),
+      ),
     );
   }
 }

@@ -170,6 +170,7 @@ class _ItemThumbnails extends StatelessWidget {
 
   static const double _size = 48;
   static const double _overlap = 16;
+
   /// Cizilecek *daire* sayisinin ust siniri — gosterilecek urun sayisinin
   /// degil. Onceden sinir urunlere konuluyordu, ama "+N" dairesi onun
   /// disindaydi: dort urunde yine dort daire cikiyor ve 144 piksel tutuyordu.

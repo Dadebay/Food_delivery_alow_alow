@@ -27,5 +27,4 @@ class FeatureUnavailableException implements Exception {
 /// 404 is the common case (no route). 501 is a server that knows the route
 /// and says it is not implemented. Anything else — 400, 401, 409, 5xx — is a
 /// real answer about this particular request and must not be swallowed.
-bool isFeatureAbsent(int statusCode) =>
-    statusCode == 404 || statusCode == 501;
+bool isFeatureAbsent(int statusCode) => statusCode == 404 || statusCode == 501;

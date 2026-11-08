@@ -350,38 +350,38 @@ class _Stepper extends StatelessWidget {
         // The "+" keeps its place while the pill grows leftwards.
         alignment: Alignment.centerRight,
         child: SizedBox(
-      height: _QuickAdd._height,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _StepTap(
-            // One below the last unit reads as "remove", so it gets the
-            // bin rather than a minus the customer might not expect to empty
-            // the line.
-            icon: quantity == 1 ? AppIcons.delete : AppIcons.minus,
-            onTap: onDecrease,
-          ),
-          Expanded(
-            child: TweenAnimationBuilder<double>(
-              key: ValueKey(quantity),
-              tween: Tween(begin: 1.18, end: 1.0),
-              duration: const Duration(milliseconds: 240),
-              curve: Curves.easeOutBack,
-              builder: (context, scale, child) =>
-                  Transform.scale(scale: scale, child: child),
-              child: Text(
-                '$quantity',
-                textAlign: TextAlign.center,
-                style: AppText.button.copyWith(
-                  fontSize: 14,
-                  color: AppColors.onBrand,
+          height: _QuickAdd._height,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _StepTap(
+                // One below the last unit reads as "remove", so it gets the
+                // bin rather than a minus the customer might not expect to empty
+                // the line.
+                icon: quantity == 1 ? AppIcons.delete : AppIcons.minus,
+                onTap: onDecrease,
+              ),
+              Expanded(
+                child: TweenAnimationBuilder<double>(
+                  key: ValueKey(quantity),
+                  tween: Tween(begin: 1.18, end: 1.0),
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutBack,
+                  builder: (context, scale, child) =>
+                      Transform.scale(scale: scale, child: child),
+                  child: Text(
+                    '$quantity',
+                    textAlign: TextAlign.center,
+                    style: AppText.button.copyWith(
+                      fontSize: 14,
+                      color: AppColors.onBrand,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              _StepTap(icon: AppIcons.plus, onTap: onIncrease),
+            ],
           ),
-          _StepTap(icon: AppIcons.plus, onTap: onIncrease),
-        ],
-      ),
         ),
       ),
     );

@@ -121,7 +121,10 @@ class OrderProvider extends ChangeNotifier {
   /// has passed, since by then it's unlikely to still be `NEW` server-side.
   /// In demo mode there's no backend to confirm against, so the status
   /// simply flips locally instead of making a request.
-  Future<void> cancelOrder(CustomerOrder order, {required String reason}) async {
+  Future<void> cancelOrder(
+    CustomerOrder order, {
+    required String reason,
+  }) async {
     if (AppConfig.useMockData) {
       await Future<void>.delayed(const Duration(milliseconds: 400));
       order.status = OrderStatus.cancelled;

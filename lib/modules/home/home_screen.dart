@@ -88,7 +88,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _pickAddress() async {
     if (!context.read<AuthProvider>().isSignedIn) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
       return;
     }
     // Harita kullanicinin mevcut adresi uzerinde acilsin: cogu zaman amac
@@ -206,14 +208,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                   // cafe's menu is still coming.
                                   if (!catalog.switchingCafe) ...[
                                     const SizedBox(height: 6),
-                                    _MenuHeading(title: s.sections, allLabel: s.all, selectedCategory: _category, onShowAll: () => setState(() => _category = null)),
+                                    _MenuHeading(
+                                      title: s.sections,
+                                      allLabel: s.all,
+                                      selectedCategory: _category,
+                                      onShowAll: () =>
+                                          setState(() => _category = null),
+                                    ),
                                     _CategoryChips(
                                       categories: catalog.categories,
                                       selected: _category,
                                       popularLabel: s.categoryPopular,
                                       onSelect: (id) {
                                         setState(() => _category = id);
-                                        AnalyticsService.instance.categorySelected(id);
+                                        AnalyticsService.instance
+                                            .categorySelected(id);
                                       },
                                     ),
                                   ],
@@ -227,25 +236,34 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: _CafeSwitchingPanel(
                                 message: s.cafeSwitching,
                                 cafeName: catalog.cafes
-                                    .where((c) => c.id == catalog.selectedCafeId)
+                                    .where(
+                                      (c) => c.id == catalog.selectedCafeId,
+                                    )
                                     .map((c) => c.name)
                                     .firstOrNull,
                               ),
                             )
                           else if (catalog.loading)
-                            const SliverToBoxAdapter(child: HomeLoadingSkeleton.shelves())
+                            const SliverToBoxAdapter(
+                              child: HomeLoadingSkeleton.shelves(),
+                            )
                           else if (_category == null)
                             SliverList.builder(
                               itemCount: catalog.homeCategories.length,
                               itemBuilder: (context, index) {
                                 final category = catalog.homeCategories[index];
                                 final shownAt = _shownAt;
-                                final isFirstPaint = shownAt != null && DateTime.now().difference(shownAt) < _entranceWindow;
+                                final isFirstPaint =
+                                    shownAt != null &&
+                                    DateTime.now().difference(shownAt) <
+                                        _entranceWindow;
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 30),
                                   child: _HomeCategoryShelf(
                                     category: category,
-                                    dishes: catalog.homeDishesForCategory(category.id),
+                                    dishes: catalog.homeDishesForCategory(
+                                      category.id,
+                                    ),
                                     strings: s,
                                     onToggleFavorite: catalog.toggleFavorite,
                                     animate: isFirstPaint,
@@ -256,15 +274,27 @@ class _HomeScreenState extends State<HomeScreen> {
                           else
                             SliverToBoxAdapter(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                child: DishGrid(dishes: catalog.forCategory(_category), strings: s, onToggleFavorite: catalog.toggleFavorite),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                child: DishGrid(
+                                  dishes: catalog.forCategory(_category),
+                                  strings: s,
+                                  onToggleFavorite: catalog.toggleFavorite,
+                                ),
                               ),
                             ),
                         ] else
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                              child: DishGrid(dishes: catalog.forCategory(_category), strings: s, onToggleFavorite: catalog.toggleFavorite),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              child: DishGrid(
+                                dishes: catalog.forCategory(_category),
+                                strings: s,
+                                onToggleFavorite: catalog.toggleFavorite,
+                              ),
                             ),
                           ),
                         const SliverToBoxAdapter(child: SizedBox(height: 16)),
@@ -279,7 +309,12 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _MenuHeading extends StatelessWidget {
-  const _MenuHeading({required this.title, required this.allLabel, required this.selectedCategory, required this.onShowAll});
+  const _MenuHeading({
+    required this.title,
+    required this.allLabel,
+    required this.selectedCategory,
+    required this.onShowAll,
+  });
 
   final String title;
   final String allLabel;
@@ -300,7 +335,11 @@ class _MenuHeading extends StatelessWidget {
         if (selectedCategory != null)
           TextButton(
             onPressed: onShowAll,
-            style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 4), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            style: TextButton.styleFrom(
+              minimumSize: Size.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
             child: Text(allLabel),
           ),
       ],
@@ -309,7 +348,13 @@ class _MenuHeading extends StatelessWidget {
 }
 
 class _HomeCategoryShelf extends StatelessWidget {
-  const _HomeCategoryShelf({required this.category, required this.dishes, required this.strings, required this.onToggleFavorite, required this.animate});
+  const _HomeCategoryShelf({
+    required this.category,
+    required this.dishes,
+    required this.strings,
+    required this.onToggleFavorite,
+    required this.animate,
+  });
 
   final DishCategory category;
   final List<Dish> dishes;
@@ -342,7 +387,10 @@ class _HomeCategoryShelf extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => CategoryDishesScreen(categoryId: category.id, categoryName: category.name),
+                builder: (_) => CategoryDishesScreen(
+                  categoryId: category.id,
+                  categoryName: category.name,
+                ),
               ),
             ),
             child: Padding(
@@ -352,7 +400,10 @@ class _HomeCategoryShelf extends StatelessWidget {
                   SizedBox(
                     width: 46,
                     height: 46,
-                    child: DishThumbnail(dish: dishes.first, borderRadius: BorderRadius.circular(14)),
+                    child: DishThumbnail(
+                      dish: dishes.first,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -362,15 +413,31 @@ class _HomeCategoryShelf extends StatelessWidget {
                         // A step lighter than a screen heading: a shelf title
                         // repeats down the whole feed, and at full bold every
                         // one of them competes with the dish cards under it.
-                        Text(category.name, style: AppText.h2.copyWith(fontSize: 19, fontWeight: FontWeight.w600)),
+                        Text(
+                          category.name,
+                          style: AppText.h2.copyWith(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 3),
-                        Text(strings.dishesCount(dishes.length), style: AppText.bodyMuted.copyWith(fontSize: 12)),
+                        Text(
+                          strings.dishesCount(dishes.length),
+                          style: AppText.bodyMuted.copyWith(fontSize: 12),
+                        ),
                       ],
                     ),
                   ),
-                  Text(strings.all, style: AppText.chip.copyWith(color: AppColors.orange)),
+                  Text(
+                    strings.all,
+                    style: AppText.chip.copyWith(color: AppColors.orange),
+                  ),
                   const SizedBox(width: 4),
-                  const HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, color: AppColors.orange, size: 18),
+                  const HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowRight01,
+                    color: AppColors.orange,
+                    size: 18,
+                  ),
                 ],
               ),
             ),
@@ -379,7 +446,13 @@ class _HomeCategoryShelf extends StatelessWidget {
           // A preview, not the category. Tapping the header row above opens
           // the full list, and the count next to the name already says how
           // much more there is.
-          DishGrid(dishes: dishes, strings: strings, onToggleFavorite: onToggleFavorite, maxItems: _previewCount(context), animate: animate),
+          DishGrid(
+            dishes: dishes,
+            strings: strings,
+            onToggleFavorite: onToggleFavorite,
+            maxItems: _previewCount(context),
+            animate: animate,
+          ),
         ],
       ),
     );
@@ -400,7 +473,12 @@ class _OfflineState extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(20),
-            child: Image.asset('assets/images/no_connection.png', width: 200, height: 200, fit: BoxFit.cover),
+            child: Image.asset(
+              'assets/images/no_connection.png',
+              width: 200,
+              height: 200,
+              fit: BoxFit.cover,
+            ),
           ),
           const SizedBox(height: 16),
           Text(message, textAlign: TextAlign.center, style: AppText.h2),
@@ -411,7 +489,14 @@ class _OfflineState extends StatelessWidget {
 }
 
 class _Header extends StatefulWidget {
-  const _Header({required this.addressLine, required this.onTapAddress, required this.searchController, required this.searchHint, required this.deliveryAddressLabel, required this.onSearchChanged});
+  const _Header({
+    required this.addressLine,
+    required this.onTapAddress,
+    required this.searchController,
+    required this.searchHint,
+    required this.deliveryAddressLabel,
+    required this.onSearchChanged,
+  });
 
   final String? addressLine;
   final VoidCallback onTapAddress;
@@ -441,7 +526,9 @@ class _HeaderState extends State<_Header> {
   void _toggleSearch() {
     setState(() => _searchOpen = !_searchOpen);
     if (_searchOpen) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _searchFocus.requestFocus());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _searchFocus.requestFocus(),
+      );
     } else {
       _searchFocus.unfocus();
       widget.searchController.clear();
@@ -454,7 +541,12 @@ class _HeaderState extends State<_Header> {
     return Container(
       width: double.infinity,
       color: AppColors.brand,
-      padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 12, 20, 20),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        MediaQuery.paddingOf(context).top + 12,
+        20,
+        20,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -470,7 +562,9 @@ class _HeaderState extends State<_Header> {
                 firstCurve: Curves.easeOut,
                 secondCurve: Curves.easeIn,
                 sizeCurve: Curves.easeOut,
-                crossFadeState: _searchOpen ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                crossFadeState: _searchOpen
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
                 firstChild: SizedBox(
                   height: _fieldHeight,
                   child: Align(
@@ -481,9 +575,20 @@ class _HeaderState extends State<_Header> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(widget.deliveryAddressLabel, style: AppText.label.copyWith(color: AppColors.brandMuted, fontSize: 12)),
+                          Text(
+                            widget.deliveryAddressLabel,
+                            style: AppText.label.copyWith(
+                              color: AppColors.brandMuted,
+                              fontSize: 12,
+                            ),
+                          ),
                           const SizedBox(height: 6),
-                          Text(widget.addressLine ?? '—', style: AppText.h1.copyWith(fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(
+                            widget.addressLine ?? '—',
+                            style: AppText.h1.copyWith(fontSize: 16),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ],
                       ),
                     ),
@@ -505,19 +610,29 @@ class _HeaderState extends State<_Header> {
                       // grey — the same ink as the magnifier inside it.
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.textMuted),
+                        borderSide: const BorderSide(
+                          color: AppColors.textMuted,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.textMuted),
+                        borderSide: const BorderSide(
+                          color: AppColors.textMuted,
+                        ),
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.textMuted),
+                        borderSide: const BorderSide(
+                          color: AppColors.textMuted,
+                        ),
                       ),
                       prefixIcon: const Padding(
                         padding: EdgeInsets.all(14),
-                        child: HugeIcon(icon: AppIcons.search, color: AppColors.textMuted, size: 20),
+                        child: HugeIcon(
+                          icon: AppIcons.search,
+                          color: AppColors.textMuted,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),
@@ -534,7 +649,11 @@ class _HeaderState extends State<_Header> {
               onTap: _toggleSearch,
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: HugeIcon(icon: _searchOpen ? AppIcons.cancel : AppIcons.search, color: AppColors.onBrand, size: 20),
+                child: HugeIcon(
+                  icon: _searchOpen ? AppIcons.cancel : AppIcons.search,
+                  color: AppColors.onBrand,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -545,7 +664,12 @@ class _HeaderState extends State<_Header> {
 }
 
 class _CategoryChips extends StatelessWidget {
-  const _CategoryChips({required this.categories, required this.selected, required this.popularLabel, required this.onSelect});
+  const _CategoryChips({
+    required this.categories,
+    required this.selected,
+    required this.popularLabel,
+    required this.onSelect,
+  });
 
   final List<DishCategory> categories;
   final String? selected;
@@ -577,7 +701,10 @@ class _CategoryChips extends StatelessWidget {
     for (var i = 0; i < categories.length; i += rows) {
       final end = i + rows;
       columns.add(
-        categories.sublist(i, end > categories.length ? categories.length : end),
+        categories.sublist(
+          i,
+          end > categories.length ? categories.length : end,
+        ),
       );
     }
 
@@ -644,7 +771,15 @@ class _Chip extends StatelessWidget {
       decoration: BoxDecoration(
         color: active ? AppColors.brand : AppColors.cream,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: active ? [BoxShadow(color: AppColors.brand.withValues(alpha: 0.28), blurRadius: 10, offset: const Offset(0, 4))] : null,
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: AppColors.brand.withValues(alpha: 0.28),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
       ),
       child: Material(
         type: MaterialType.transparency,
