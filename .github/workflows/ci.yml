@@ -43,11 +43,19 @@ jobs:
       # published SHA-256, so a mirror cannot substitute different bytes.
       - name: Use checksum-verified Gradle mirror on CI
         run: sed -i 's#services.gradle.org/distributions#mirror.spaceport.work/gradle#' android/gradle/wrapper/gradle-wrapper.properties
+      # Maven Central's repo.maven.apache.org hostname currently redirects the
+      # Kotlin compiler artifact to GitHub, where hosted runners receive 504.
+      # repo1.maven.org serves the same Maven Central artifact directly.
+      - name: Use Maven Central alternate hostname on CI
+        run: |
+          flutter_root="$(dirname "$(dirname "$(command -v flutter)")")"
+          sed -i 's#mavenCentral()#maven { url = uri("https://repo1.maven.org/maven2") }#g' android/settings.gradle.kts
+          sed -i 's#mavenCentral()#maven { url = uri("https://repo1.maven.org/maven2") }#g' "$flutter_root/packages/flutter_tools/gradle/settings.gradle.kts"
       - run: flutter build apk --debug --no-pub
 
   build-ios:
     needs: analyze-and-test
-    runs-on: macos-15-intel
+    runs-on: macos-26-intel
     steps:
       - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
